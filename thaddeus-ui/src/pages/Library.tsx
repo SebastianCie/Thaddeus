@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { packagesApi } from '../api/client'
 import type { Package } from '../types'
@@ -10,10 +10,79 @@ function formatBytes(bytes: number) {
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
 }
 
+function UploadModal({ onClose }: { onClose: () => void }) {
+  const qc = useQueryClient()
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [form, setForm] = useState({ packageId: '', version: '' })
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+
+  const uploadMutation = useMutation({
+    mutationFn: () => packagesApi.upload(form.packageId, form.version, selectedFile!),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['packages'] })
+      onClose()
+    },
+  })
+
+  const canSubmit = form.packageId.trim() && form.version.trim() && selectedFile && !uploadMutation.isPending
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal" style={{ minWidth: 420 }}>
+        <div className="modal-title">Upload Package</div>
+
+        <div className="form-group">
+          <label className="form-label">Package ID *</label>
+          <input className="form-input" placeholder="e.g. MyWebApp" value={form.packageId}
+            onChange={e => setForm(f => ({ ...f, packageId: e.target.value }))} />
+          <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
+            Logical name of the application (no spaces)
+          </span>
+        </div>
+
+        <div className="form-group">
+          <label className="form-label">Version *</label>
+          <input className="form-input" placeholder="e.g. 1.2.3" value={form.version}
+            onChange={e => setForm(f => ({ ...f, version: e.target.value }))} />
+        </div>
+
+        <div className="form-group">
+          <label className="form-label">NuGet Package (.nupkg) *</label>
+          <input ref={fileRef} type="file" accept=".nupkg,.zip"
+            onChange={e => setSelectedFile(e.target.files?.[0] ?? null)}
+            style={{ display: 'none' }} />
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <button className="btn btn-secondary" onClick={() => fileRef.current?.click()}>
+              Choose file…
+            </button>
+            <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
+              {selectedFile ? `${selectedFile.name} (${formatBytes(selectedFile.size)})` : 'No file selected'}
+            </span>
+          </div>
+        </div>
+
+        {uploadMutation.isError && (
+          <p style={{ color: 'var(--color-danger)', fontSize: 13, marginBottom: 8 }}>
+            Upload failed. Package ID + version may already exist.
+          </p>
+        )}
+
+        <div className="modal-actions">
+          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" onClick={() => uploadMutation.mutate()} disabled={!canSubmit}>
+            {uploadMutation.isPending ? 'Uploading…' : 'Upload'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function Library() {
   const qc = useQueryClient()
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(0)
+  const [showUpload, setShowUpload] = useState(false)
 
   const { data: packages = [], isLoading } = useQuery<Package[]>({
     queryKey: ['packages', search, page],
@@ -30,6 +99,7 @@ export function Library() {
     <div className="page">
       <div className="page-header">
         <h1 className="page-title">Library — Packages</h1>
+        <button className="btn btn-primary" onClick={() => setShowUpload(true)}>+ Upload Package</button>
       </div>
 
       <div style={{ marginBottom: 16 }}>
@@ -74,6 +144,8 @@ export function Library() {
           </div>
         </div>
       )}
+
+      {showUpload && <UploadModal onClose={() => setShowUpload(false)} />}
     </div>
   )
 }

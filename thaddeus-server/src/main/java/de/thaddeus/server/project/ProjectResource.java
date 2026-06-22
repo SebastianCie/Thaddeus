@@ -114,6 +114,7 @@ public class ProjectResource {
             step.position = i;
             step.type = req.type();
             step.configJson = req.configJson() != null ? req.configJson() : "{}";
+            step.targetRoles = req.targetRoles() != null ? req.targetRoles() : List.of();
             step.persist();
         }
         auditService.log(userId(), username(), "UPDATE_STEPS", "project", id.toString(), null,
@@ -190,7 +191,7 @@ public class ProjectResource {
         return identity.isAnonymous() ? null : identity.getPrincipal().getName();
     }
 
-    public record StepRequest(String type, String configJson) {}
+    public record StepRequest(String type, String configJson, List<String> targetRoles) {}
     public record VariableRequest(String name, String value, boolean isSecret, UUID environmentId) {}
     public record VariableView(UUID id, String name, String value, boolean isSecret, UUID environmentId) {}
 }

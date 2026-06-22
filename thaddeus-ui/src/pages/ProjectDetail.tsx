@@ -73,34 +73,81 @@ export function ProjectDetail() {
   )
 }
 
+function StepRolesEditor({ roles, onChange }: { roles: string[]; onChange: (roles: string[]) => void }) {
+  const [input, setInput] = useState('')
+
+  function add() {
+    const name = input.trim().toLowerCase()
+    if (name && !roles.includes(name)) onChange([...roles, name])
+    setInput('')
+  }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+      <span style={{ fontSize: 11, color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>Roles:</span>
+      {roles.length === 0
+        ? <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>all agents</span>
+        : roles.map(r => (
+          <span key={r} style={{ fontSize: 11, background: 'var(--color-surface-2,#2d2d2d)', border: '1px solid var(--color-border)', borderRadius: 4, padding: '1px 6px', display: 'flex', alignItems: 'center', gap: 4 }}>
+            {r}
+            <button onClick={() => onChange(roles.filter(x => x !== r))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', padding: 0, lineHeight: 1, fontSize: 12 }}>×</button>
+          </span>
+        ))}
+      <input
+        value={input}
+        onChange={e => setInput(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); add() } }}
+        placeholder="add role…"
+        style={{ fontSize: 11, border: '1px solid var(--color-border)', borderRadius: 4, padding: '2px 6px', background: 'transparent', color: 'inherit', width: 90 }}
+      />
+    </div>
+  )
+}
+
 function StepsTab({ projectId, steps, qc }: { projectId: string; steps: DeploymentStep[]; qc: any }) {
   const [localSteps, setLocalSteps] = useState(steps)
   const saveMutation = useMutation({
-    mutationFn: () => projectsApi.replaceSteps(projectId, localSteps.map((s, i) => ({ type: s.type, configJson: s.configJson }))),
+    mutationFn: () => projectsApi.replaceSteps(projectId, localSteps.map(s => ({
+      type: s.type,
+      configJson: s.configJson,
+      targetRoles: s.targetRoles ?? [],
+    }))),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['steps', projectId] }),
   })
+
+  function updateRoles(i: number, roles: string[]) {
+    setLocalSteps(s => s.map((step, j) => j === i ? { ...step, targetRoles: roles } : step))
+  }
 
   return (
     <div>
       {localSteps.map((step, i) => (
-        <div key={i} className="card" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={{ color: 'var(--color-text-muted)', minWidth: 24 }}>{i}</span>
-          <span className="badge badge-pending" style={{ fontFamily: 'monospace' }}>{step.type}</span>
-          <span style={{ color: 'var(--color-text-muted)', flex: 1, fontSize: 12, fontFamily: 'monospace' }}>
-            {step.configJson}
-          </span>
-          <button className="btn btn-sm btn-danger" onClick={() => setLocalSteps(s => s.filter((_, j) => j !== i))}>✕</button>
+        <div key={i} className="card" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ color: 'var(--color-text-muted)', minWidth: 24 }}>{i + 1}</span>
+            <span className="badge badge-pending" style={{ fontFamily: 'monospace' }}>{step.type}</span>
+            <textarea
+              value={step.configJson}
+              onChange={e => setLocalSteps(s => s.map((st, j) => j === i ? { ...st, configJson: e.target.value } : st))}
+              rows={3}
+              style={{ flex: 1, fontSize: 12, fontFamily: 'monospace', background: 'var(--color-surface-2,#1e1e1e)', color: 'inherit', border: '1px solid var(--color-border)', borderRadius: 4, padding: '4px 8px', resize: 'vertical' }}
+            />
+            <button className="btn btn-sm btn-danger" onClick={() => setLocalSteps(s => s.filter((_, j) => j !== i))}>✕</button>
+          </div>
+          <StepRolesEditor roles={step.targetRoles ?? []} onChange={roles => updateRoles(i, roles)} />
         </div>
       ))}
-      <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+      <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
         {['DEPLOY_IIS_WEBSITE', 'DEPLOY_IIS_WEBAPP', 'RUN_POWERSHELL_SCRIPT'].map(type => (
           <button key={type} className="btn btn-secondary btn-sm"
-            onClick={() => setLocalSteps(s => [...s, { id: '', projectId, position: s.length, type, configJson: '{}' }])}>
+            onClick={() => setLocalSteps(s => [...s, { id: '', projectId, position: s.length, type, configJson: '{}', targetRoles: [] }])}>
             + {type}
           </button>
         ))}
         <button className="btn btn-primary btn-sm" onClick={() => saveMutation.mutate()}
-          disabled={saveMutation.isPending}>Save Steps</button>
+          disabled={saveMutation.isPending}>
+          {saveMutation.isPending ? 'Saving…' : 'Save Steps'}
+        </button>
       </div>
     </div>
   )
@@ -185,7 +232,7 @@ function ReleasesTab({ releases, environments, projectId }: { releases: Release[
 
   const deployMutation = useMutation({
     mutationFn: () => import('../api/client').then(m => m.deploymentsApi.trigger(deployModal!.id, envId)),
-    onSuccess: () => setDeployModal(null),
+    onSuccess: () => { setDeployModal(null); qc.invalidateQueries({ queryKey: ['deployments'] }) },
   })
 
   return (
@@ -220,10 +267,15 @@ function ReleasesTab({ releases, environments, projectId }: { releases: Release[
                 {environments.map(env => <option key={env.id} value={env.id}>{env.name}</option>)}
               </select>
             </div>
+            {deployMutation.isError && (
+              <p style={{ color: 'var(--color-danger)', fontSize: 13, marginBottom: 8 }}>
+                {(deployMutation.error as any)?.response?.data?.error ?? 'Deployment failed. Check agent is ONLINE and assigned to this environment.'}
+              </p>
+            )}
             <div className="modal-actions">
               <button className="btn btn-secondary" onClick={() => setDeployModal(null)}>Cancel</button>
               <button className="btn btn-primary" onClick={() => deployMutation.mutate()} disabled={!envId || deployMutation.isPending}>
-                Trigger Deployment
+                {deployMutation.isPending ? 'Starting…' : 'Trigger Deployment'}
               </button>
             </div>
           </div>

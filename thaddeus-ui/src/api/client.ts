@@ -34,6 +34,13 @@ export const packagesApi = {
   list: (search?: string, page = 0, size = 20) =>
     api.get('/packages', { params: { search, page, size } }).then(r => r.data),
   versions: (packageId: string) => api.get(`/packages/${packageId}/versions`).then(r => r.data),
+  upload: (packageId: string, version: string, file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    return api.put(`/packages/${packageId}/${version}`, form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then(r => r.data)
+  },
   delete: (packageId: string, version: string) =>
     api.delete(`/packages/${packageId}/${version}`),
 };

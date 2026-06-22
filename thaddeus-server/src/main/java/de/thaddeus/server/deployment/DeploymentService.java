@@ -46,15 +46,6 @@ public class DeploymentService {
                     Response.status(400).entity("{\"error\":\"Release has no deployment steps\"}").build());
         }
 
-        // Find matching agents (any agent in the environment)
-        List<Agent> targetAgents = Agent.findByEnvironment(environmentId);
-        if (targetAgents.isEmpty()) {
-            throw new WebApplicationException(Response.status(400)
-                    .entity("{\"error\":\"No ONLINE agents found for environment '"
-                            + environment.name + "'\"}")
-                    .build());
-        }
-
         Deployment deployment = new Deployment();
         deployment.releaseId = releaseId;
         deployment.environmentId = environmentId;
@@ -65,12 +56,27 @@ public class DeploymentService {
         // Resolve variables for the environment
         Map<String, String> variables = resolveVariables(releaseId, environmentId);
 
-        // Create tasks per agent per step and send via SSE
-        for (Agent agent : targetAgents) {
-            for (int i = 0; i < steps.size(); i++) {
-                Map<String, Object> stepDef = steps.get(i);
-                String stepType = (String) stepDef.get("type");
+        // Dispatch per step: each step specifies which target roles it requires.
+        // Agents are selected by environment + role — different steps can target different machines.
+        for (int i = 0; i < steps.size(); i++) {
+            Map<String, Object> stepDef = steps.get(i);
+            String stepType = (String) stepDef.get("type");
 
+            List<String> stepRoles = stepDef.get("targetRoles") instanceof List<?> raw
+                    ? raw.stream().map(Object::toString).toList()
+                    : List.of();
+
+            List<Agent> targetAgents = stepRoles.isEmpty()
+                    ? Agent.findByEnvironment(environmentId)
+                    : Agent.findByEnvironmentAndRoles(environmentId, stepRoles);
+
+            if (targetAgents.isEmpty()) {
+                log.warnf("Step %d (%s) has no matching ONLINE agents in environment %s (roles: %s) — skipping",
+                        i, stepType, environment.name, stepRoles);
+                continue;
+            }
+
+            for (Agent agent : targetAgents) {
                 DeploymentTask task = new DeploymentTask();
                 task.deploymentId = deployment.id;
                 task.agentId = agent.id;
@@ -85,7 +91,7 @@ public class DeploymentService {
                 if (sent) {
                     task.status = DeploymentStatus.RUNNING;
                     task.startedAt = Instant.now();
-                    log.infof("Dispatched task %s to agent %s", task.id, agent.hostname);
+                    log.infof("Dispatched task %s (step %d) to agent %s", task.id, i, agent.hostname);
                 } else {
                     task.status = DeploymentStatus.FAILED;
                     task.finishedAt = Instant.now();

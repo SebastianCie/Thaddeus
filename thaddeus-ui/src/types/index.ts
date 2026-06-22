@@ -52,6 +52,7 @@ export interface DeploymentStep {
   position: number;
   type: string;
   configJson: string;
+  targetRoles: string[];
 }
 
 export interface Variable {

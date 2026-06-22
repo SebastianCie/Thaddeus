@@ -67,6 +67,15 @@ public class Agent extends PanacheEntityBase {
                 """, environmentId, roleName).list();
     }
 
+    public static List<Agent> findByEnvironmentAndRoles(UUID environmentId, List<String> roleNames) {
+        return find("""
+                SELECT DISTINCT a FROM Agent a
+                JOIN a.agentEnvironments ae
+                JOIN a.agentRoles ar
+                WHERE ae.id = ?1 AND ar.name IN ?2 AND a.status = 'ONLINE'
+                """, environmentId, roleNames).list();
+    }
+
     public static List<Agent> findByEnvironment(UUID environmentId) {
         return find("""
                 SELECT DISTINCT a FROM Agent a
@@ -83,6 +92,6 @@ public class Agent extends PanacheEntityBase {
 
     public static void refreshLastSeen(Set<UUID> ids) {
         if (ids.isEmpty()) return;
-        update("lastSeenAt = ?1 WHERE id IN ?2", Instant.now(), ids);
+        update("lastSeenAt = ?1, status = 'ONLINE' WHERE id IN ?2", Instant.now(), ids);
     }
 }
