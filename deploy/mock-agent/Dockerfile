@@ -5,7 +5,7 @@ COPY pom.xml mvnw ./
 COPY .mvn .mvn
 COPY thaddeus-server/pom.xml thaddeus-server/pom.xml
 COPY thaddeus-agent thaddeus-agent
-RUN mvn -pl thaddeus-agent -am package -DskipTests -q
+RUN --mount=type=cache,target=/root/.m2 mvn -pl thaddeus-agent -am package -DskipTests -q
 
 # Stage 2: PowerShell Core (Ubuntu) + JDK 21 runtime + agent
 FROM mcr.microsoft.com/powershell:7.4-ubuntu-22.04

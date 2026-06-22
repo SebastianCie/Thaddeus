@@ -20,14 +20,9 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          java-version: '21'
-          distribution: 'temurin'
-          cache: maven
 
-      - name: Build server
-        run: ./mvnw -pl thaddeus-server -am package -DskipTests
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Log in to GHCR
         if: github.ref == 'refs/heads/main'
@@ -38,14 +33,16 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build & push server image
-        if: github.ref == 'refs/heads/main'
         uses: docker/build-push-action@v5
         with:
-          context: ./thaddeus-server
-          push: true
+          context: .
+          dockerfile: thaddeus-server/Dockerfile
+          push: ${{ github.ref == 'refs/heads/main' }}
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_SERVER }}:latest
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_SERVER }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   build-ui:
     name: Build UI
@@ -55,17 +52,9 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: npm
-          cache-dependency-path: thaddeus-ui/package-lock.json
 
-      - name: Install & build UI
-        working-directory: thaddeus-ui
-        run: |
-          npm ci
-          npm run build
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Log in to GHCR
         if: github.ref == 'refs/heads/main'
@@ -76,14 +65,15 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build & push UI image
-        if: github.ref == 'refs/heads/main'
         uses: docker/build-push-action@v5
         with:
           context: ./thaddeus-ui
-          push: true
+          push: ${{ github.ref == 'refs/heads/main' }}
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_UI }}:latest
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_UI }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   build-agent-windows:
     name: Build Windows Agent (Native)
@@ -91,6 +81,14 @@ jobs:
     if: github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
+
+      - name: Cache Maven repository
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-maven-
+
       - uses: graalvm/setup-graalvm@v1
         with:
           java-version: '21'
