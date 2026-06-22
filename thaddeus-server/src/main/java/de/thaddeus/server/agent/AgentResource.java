@@ -5,6 +5,7 @@ import de.thaddeus.server.audit.AuditService;
 import de.thaddeus.server.environment.Environment;
 import io.quarkus.security.identity.SecurityIdentity;
 import io.smallrye.mutiny.Multi;
+import io.smallrye.common.annotation.Blocking;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -59,13 +60,23 @@ public class AgentResource {
     @Produces(MediaType.SERVER_SENT_EVENTS)
     @RestStreamElementType(MediaType.APPLICATION_JSON)
     @RolesAllowed({"thaddeus-admin", "thaddeus-deployer"})
-    @Transactional
+    @Blocking
     public Multi<AgentEvent> events(@PathParam("id") UUID id) {
+        // Status update runs in its own short transaction so it commits immediately.
+        // The SSE stream must NOT be inside a @Transactional method: a reactive Multi
+        // return keeps the JTA transaction open for the stream's lifetime (hours), which
+        // causes the TransactionReaper to cancel it (default 60s timeout), rolling back
+        // the ONLINE status update and making the agent appear OFFLINE again.
+        markOnline(id);
+        return streamManager.openStream(id);
+    }
+
+    @Transactional
+    void markOnline(UUID id) {
         Agent agent = Agent.findById(id);
         if (agent == null) throw new NotFoundException();
         agent.status = AgentStatus.ONLINE;
         agent.lastSeenAt = Instant.now();
-        return streamManager.openStream(id);
     }
 
     // ── Agent list & status (Issue #2 UI) ────────────────────────────────────
