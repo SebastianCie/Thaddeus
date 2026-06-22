@@ -18,11 +18,11 @@ public class SseStreamManager {
 
     private static final Logger log = Logger.getLogger(SseStreamManager.class);
 
-    private final Map<UUID, MultiEmitter<AgentEvent>> emitters = new ConcurrentHashMap<>();
+    private final Map<UUID, MultiEmitter<? super AgentEvent>> emitters = new ConcurrentHashMap<>();
 
     public Multi<AgentEvent> openStream(UUID agentId) {
         return Multi.createFrom().emitter(emitter -> {
-            MultiEmitter<AgentEvent> previous = emitters.put(agentId, emitter);
+            MultiEmitter<? super AgentEvent> previous = emitters.put(agentId, emitter);
             if (previous != null) {
                 previous.complete();
             }
@@ -35,7 +35,7 @@ public class SseStreamManager {
     }
 
     public boolean send(UUID agentId, AgentEvent event) {
-        MultiEmitter<AgentEvent> emitter = emitters.get(agentId);
+        MultiEmitter<? super AgentEvent> emitter = emitters.get(agentId);
         if (emitter != null && !emitter.isCancelled()) {
             emitter.emit(event);
             return true;
@@ -44,7 +44,7 @@ public class SseStreamManager {
     }
 
     public boolean isConnected(UUID agentId) {
-        MultiEmitter<AgentEvent> emitter = emitters.get(agentId);
+        MultiEmitter<? super AgentEvent> emitter = emitters.get(agentId);
         return emitter != null && !emitter.isCancelled();
     }
 

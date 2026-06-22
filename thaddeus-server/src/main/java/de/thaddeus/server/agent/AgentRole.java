@@ -19,12 +19,11 @@ public class AgentRole extends PanacheEntityBase {
     public String name;
 
     public static AgentRole findOrCreate(String name) {
-        return find("name", name).firstResultOptional()
-                .orElseGet(() -> {
-                    AgentRole r = new AgentRole();
-                    r.name = name;
-                    r.persist();
-                    return r;
-                });
+        AgentRole existing = (AgentRole) find("name", name).firstResult();
+        if (existing != null) return existing;
+        AgentRole r = new AgentRole();
+        r.name = name;
+        r.persist();
+        return r;
     }
 }

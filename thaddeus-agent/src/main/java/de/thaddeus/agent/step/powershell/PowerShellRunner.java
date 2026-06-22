@@ -35,8 +35,11 @@ public class PowerShellRunner {
     public void run(String taskId, Path scriptPath, Map<String, String> envVars,
                     java.util.Set<String> secretNames, Path workDir, long timeoutMs) throws Exception {
 
+        boolean isWindows = System.getProperty("os.name", "").toLowerCase().contains("win");
+        String psExe = isWindows ? "powershell.exe" : "pwsh";
+
         List<String> command = List.of(
-                "powershell.exe",
+                psExe,
                 "-NonInteractive",
                 "-ExecutionPolicy", "Bypass",
                 "-File", scriptPath.toAbsolutePath().toString()

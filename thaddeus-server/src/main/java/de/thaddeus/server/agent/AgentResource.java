@@ -35,8 +35,8 @@ public class AgentResource {
     @Transactional
     @RolesAllowed({"thaddeus-admin", "thaddeus-deployer"})
     public Response register(RegisterRequest req) {
-        Agent agent = Agent.find("hostname", req.hostname()).firstResultOptional()
-                .orElseGet(Agent::new);
+        Agent agent = (Agent) Agent.find("hostname", req.hostname()).firstResult();
+        if (agent == null) agent = new Agent();
         agent.hostname = req.hostname();
         agent.ip = req.ip();
         agent.osVersion = req.osVersion();

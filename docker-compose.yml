@@ -34,8 +34,8 @@ services:
 
   thaddeus-server:
     build:
-      context: ./thaddeus-server
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: thaddeus-server/Dockerfile
     environment:
       DB_URL: jdbc:postgresql://postgres:5432/thaddeus
       DB_USER: thaddeus

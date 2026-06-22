@@ -1,0 +1,9 @@
+**/target/
+thaddeus-ui/node_modules/
+thaddeus-ui/dist/
+.git/
+.idea/
+.vscode/
+*.log
+.env
+.env.local

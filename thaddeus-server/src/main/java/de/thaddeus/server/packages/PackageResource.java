@@ -9,10 +9,12 @@ import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 
 import java.io.IOException;
-import java.nio.file.*;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.util.HexFormat;
 import java.util.List;
@@ -53,7 +55,7 @@ public class PackageResource {
                     .build();
         }
 
-        Path dest = Path.of(packagesRoot, packageId, version, file.fileName());
+        java.nio.file.Path dest = java.nio.file.Path.of(packagesRoot, packageId, version, file.fileName());
         Files.createDirectories(dest.getParent());
         Files.copy(file.uploadedFile(), dest, StandardCopyOption.REPLACE_EXISTING);
 
@@ -64,7 +66,7 @@ public class PackageResource {
         pkg.version = version;
         pkg.filename = file.fileName();
         pkg.path = dest.toString();
-        pkg.sizeBytes = Files.size(dest);
+        pkg.sizeBytes = Files.size((java.nio.file.Path) dest);
         pkg.sha256 = sha256;
         pkg.persist();
 
@@ -111,7 +113,7 @@ public class PackageResource {
                     .build();
         }
 
-        Files.deleteIfExists(Path.of(pkg.path));
+        Files.deleteIfExists(java.nio.file.Path.of(pkg.path));
 
         auditService.log(userId(), username(), "DELETE_PACKAGE", "package", pkg.id.toString(), null,
                 "{\"packageId\":\"" + packageId + "\",\"version\":\"" + version + "\"}");
@@ -135,7 +137,7 @@ public class PackageResource {
                 .build();
     }
 
-    private String computeSha256(Path file) throws IOException {
+    private String computeSha256(java.nio.file.Path file) throws IOException {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             byte[] bytes = Files.readAllBytes(file);
