@@ -4,11 +4,13 @@ import de.thaddeus.agent.log.LogBatch;
 import de.thaddeus.agent.log.TaskStatusUpdate;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
+import org.eclipse.microprofile.rest.client.annotation.RegisterProvider;
 import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
 
 import java.util.Map;
 
 @RegisterRestClient(configKey = "thaddeus-server")
+@RegisterProvider(BearerTokenFilter.class)
 @Path("/api")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
