@@ -7,18 +7,20 @@
   "loginWithEmailAllowed": true,
   "roles": {
     "realm": [
-      { "name": "thaddeus-admin", "description": "Full admin access" },
+      { "name": "thaddeus-admin",    "description": "Full admin access" },
       { "name": "thaddeus-deployer", "description": "Can deploy and create releases" },
-      { "name": "thaddeus-viewer", "description": "Read-only access" }
+      { "name": "thaddeus-viewer",   "description": "Read-only access" }
     ]
   },
   "clients": [
     {
       "clientId": "thaddeus-server",
       "enabled": true,
-      "bearerOnly": true,
       "publicClient": false,
-      "secret": "thaddeus-server-secret"
+      "bearerOnly": false,
+      "serviceAccountsEnabled": false,
+      "secret": "thaddeus-server-secret",
+      "protocol": "openid-connect"
     },
     {
       "clientId": "thaddeus-ui",
@@ -26,7 +28,21 @@
       "publicClient": true,
       "redirectUris": ["http://localhost:5173/*", "http://localhost:3000/*"],
       "webOrigins": ["http://localhost:5173", "http://localhost:3000"],
-      "standardFlowEnabled": true
+      "standardFlowEnabled": true,
+      "protocol": "openid-connect",
+      "protocolMappers": [
+        {
+          "name": "thaddeus-server-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "thaddeus-server",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
     },
     {
       "clientId": "thaddeus-agent",
@@ -35,21 +51,41 @@
       "secret": "thaddeus-agent-secret",
       "serviceAccountsEnabled": true,
       "directAccessGrantsEnabled": false,
-      "standardFlowEnabled": false
+      "standardFlowEnabled": false,
+      "protocol": "openid-connect",
+      "protocolMappers": [
+        {
+          "name": "thaddeus-server-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "thaddeus-server",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
     }
   ],
   "users": [
     {
       "username": "admin",
       "email": "admin@thaddeus.local",
+      "firstName": "Admin",
+      "lastName": "Thaddeus",
       "enabled": true,
+      "emailVerified": true,
       "credentials": [{ "type": "password", "value": "admin", "temporary": false }],
       "realmRoles": ["thaddeus-admin"]
     },
     {
       "username": "deployer",
       "email": "deployer@thaddeus.local",
+      "firstName": "Deployer",
+      "lastName": "Thaddeus",
       "enabled": true,
+      "emailVerified": true,
       "credentials": [{ "type": "password", "value": "deployer", "temporary": false }],
       "realmRoles": ["thaddeus-deployer"]
     }

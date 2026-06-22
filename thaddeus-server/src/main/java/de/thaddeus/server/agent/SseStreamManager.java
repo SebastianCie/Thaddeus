@@ -6,6 +6,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import org.jboss.logging.Logger;
 
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -59,5 +60,9 @@ public class SseStreamManager {
                 emitter.emit(ping);
             }
         });
+    }
+
+    public Set<UUID> getConnectedAgentIds() {
+        return emitters.keySet();
     }
 }

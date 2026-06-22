@@ -21,8 +21,10 @@ public class HeartbeatScheduler {
     @Inject SseStreamManager streamManager;
 
     @Scheduled(every = "30s")
+    @Transactional
     void sendPings() {
         streamManager.broadcastPing();
+        Agent.refreshLastSeen(streamManager.getConnectedAgentIds());
     }
 
     @Scheduled(every = "60s")

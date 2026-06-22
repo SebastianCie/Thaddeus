@@ -80,4 +80,9 @@ public class Agent extends PanacheEntityBase {
                 "status = 'OFFLINE' WHERE status = 'ONLINE' AND lastSeenAt < ?1",
                 threshold);
     }
+
+    public static void refreshLastSeen(Set<UUID> ids) {
+        if (ids.isEmpty()) return;
+        update("lastSeenAt = ?1 WHERE id IN ?2", Instant.now(), ids);
+    }
 }
