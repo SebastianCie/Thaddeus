@@ -1,0 +1,68 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: thaddeus
+      POSTGRES_USER: thaddeus
+      POSTGRES_PASSWORD: thaddeus
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U thaddeus"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0
+    command: start-dev --import-realm
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_DB: dev-mem
+    volumes:
+      - ./deploy/keycloak:/opt/keycloak/data/import
+    ports:
+      - "8180:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:8080/health/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  thaddeus-server:
+    build:
+      context: ./thaddeus-server
+      dockerfile: Dockerfile
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/thaddeus
+      DB_USER: thaddeus
+      DB_PASSWORD: thaddeus
+      OIDC_ISSUER_URL: http://keycloak:8080/realms/thaddeus
+      OIDC_CLIENT_ID: thaddeus-server
+      OIDC_CLIENT_SECRET: thaddeus-server-secret
+      PACKAGES_ROOT: /var/thaddeus/packages
+    volumes:
+      - packages_data:/var/thaddeus/packages
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+
+  thaddeus-ui:
+    build:
+      context: ./thaddeus-ui
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - thaddeus-server
+
+volumes:
+  postgres_data:
+  packages_data:

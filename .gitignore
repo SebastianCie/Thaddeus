@@ -1,0 +1,34 @@
+# Maven
+target/
+*.class
+*.jar
+!**/test/**/*.jar
+
+# Maven wrapper
+.mvn/wrapper/maven-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+
+# Node / UI
+thaddeus-ui/node_modules/
+thaddeus-ui/dist/
+
+# Env / secrets
+.env
+.env.local
+*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Quarkus
+.quarkus/
+
+# Logs
+*.log
+/tmp/

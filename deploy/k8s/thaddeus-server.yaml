@@ -1,0 +1,120 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: thaddeus-packages-pvc
+  namespace: app-thaddeus
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 20Gi
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: thaddeus-server-config
+  namespace: app-thaddeus
+data:
+  DB_URL: "jdbc:postgresql://postgres-svc:5432/thaddeus"
+  DB_USER: "thaddeus"
+  PACKAGES_ROOT: "/var/thaddeus/packages"
+  OIDC_ISSUER_URL: "https://keycloak.heim.apps/realms/thaddeus"
+  OIDC_CLIENT_ID: "thaddeus-server"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: thaddeus-server-secrets
+  namespace: app-thaddeus
+type: Opaque
+stringData:
+  DB_PASSWORD: "CHANGEME"
+  OIDC_CLIENT_SECRET: "CHANGEME"
+  THADDEUS_ENCRYPTION_KEY: "CHANGEME_BASE64_32BYTES"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: thaddeus-server
+  namespace: app-thaddeus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: thaddeus-server
+  template:
+    metadata:
+      labels:
+        app: thaddeus-server
+    spec:
+      containers:
+        - name: thaddeus-server
+          image: ghcr.io/sebastiancie/thaddeus-server:latest
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: thaddeus-server-config
+            - secretRef:
+                name: thaddeus-server-secrets
+          volumeMounts:
+            - name: packages
+              mountPath: /var/thaddeus/packages
+          livenessProbe:
+            httpGet:
+              path: /q/health/live
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /q/health/ready
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+      volumes:
+        - name: packages
+          persistentVolumeClaim:
+            claimName: thaddeus-packages-pvc
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: thaddeus-server-svc
+  namespace: app-thaddeus
+spec:
+  selector:
+    app: thaddeus-server
+  ports:
+    - port: 8080
+      targetPort: 8080
+
+---
+# OpenShift Route (MicroShift)
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: thaddeus
+  namespace: app-thaddeus
+spec:
+  host: thaddeus.heim.apps
+  to:
+    kind: Service
+    name: thaddeus-server-svc
+  port:
+    targetPort: 8080
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
