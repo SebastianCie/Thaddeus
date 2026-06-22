@@ -22,7 +22,7 @@ public class TokenProvider {
         if (cachedToken == null || Instant.now().isAfter(expiresAt.minusSeconds(30))) {
             Tokens tokens = oidcClient.getTokens().await().indefinitely();
             cachedToken = tokens.getAccessToken();
-            expiresAt = Instant.now().plusSeconds(tokens.getAccessTokenExpiresIn());
+            expiresAt = Instant.now().plusSeconds(300);
         }
         return cachedToken;
     }
