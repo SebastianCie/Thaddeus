@@ -65,4 +65,11 @@ public class SseStreamManager {
     public Set<UUID> getConnectedAgentIds() {
         return emitters.keySet();
     }
+
+    public void closeStream(UUID agentId) {
+        MultiEmitter<? super AgentEvent> emitter = emitters.remove(agentId);
+        if (emitter != null) {
+            emitter.complete();
+        }
+    }
 }

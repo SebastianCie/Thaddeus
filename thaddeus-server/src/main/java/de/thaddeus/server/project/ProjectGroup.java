@@ -9,8 +9,8 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Entity
-@Table(name = "project")
-public class Project extends PanacheEntityBase {
+@Table(name = "project_group")
+public class ProjectGroup extends PanacheEntityBase {
 
     @Id
     @GeneratedValue
@@ -23,12 +23,6 @@ public class Project extends PanacheEntityBase {
 
     @Column(columnDefinition = "TEXT")
     public String description;
-
-    @Column(name = "package_id")
-    public String packageId;
-
-    @Column(name = "group_id")
-    public UUID groupId;
 
     @Column(name = "created_at", nullable = false)
     public Instant createdAt = Instant.now();

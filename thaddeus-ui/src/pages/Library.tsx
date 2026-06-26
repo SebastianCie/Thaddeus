@@ -125,7 +125,11 @@ export function Library() {
                       {p.sha256.slice(0, 12)}…
                     </td>
                     <td style={{ fontSize: 12 }}>{format(new Date(p.uploadedAt), 'yyyy-MM-dd HH:mm')}</td>
-                    <td>
+                    <td style={{ display: 'flex', gap: 6 }}>
+                      <button className="btn btn-sm btn-secondary"
+                        onClick={() => packagesApi.download(p.packageId, p.version, p.filename)}>
+                        ↓ Download
+                      </button>
                       <button className="btn btn-sm btn-danger"
                         onClick={() => { if (confirm(`Delete ${p.packageId} ${p.version}?`))
                           deleteMutation.mutate({ packageId: p.packageId, version: p.version }) }}>

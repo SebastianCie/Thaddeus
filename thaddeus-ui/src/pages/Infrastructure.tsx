@@ -51,7 +51,7 @@ function AssignTargetsModal({ agent, environments, onClose }: {
   return (
     <div className="modal-overlay">
       <div className="modal" style={{ minWidth: 420 }}>
-        <div className="modal-title">Configure Targets — {agent.hostname}</div>
+        <div className="modal-title">Configure Deployment Target — {agent.hostname}</div>
 
         <div className="form-group">
           <label className="form-label">Environments</label>
@@ -139,13 +139,30 @@ export function Infrastructure() {
 
   const [showEnvModal, setShowEnvModal] = useState(false)
   const [envForm, setEnvForm] = useState({ name: '', description: '', color: '#6366f1' })
+  const [editingEnv, setEditingEnv] = useState<Environment | null>(null)
+  const [editForm, setEditForm] = useState({ name: '', description: '', color: '#6366f1' })
+
   const createEnvMutation = useMutation({
     mutationFn: () => environmentsApi.create(envForm),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['environments'] }); setShowEnvModal(false) },
   })
+  const updateEnvMutation = useMutation({
+    mutationFn: () => environmentsApi.update(editingEnv!.id, editForm),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['environments'] }); setEditingEnv(null) },
+  })
   const deleteEnvMutation = useMutation({
     mutationFn: (id: string) => environmentsApi.delete(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['environments'] }),
+  })
+
+  function openEditEnv(env: Environment) {
+    setEditForm({ name: env.name, description: env.description ?? '', color: env.color })
+    setEditingEnv(env)
+  }
+
+  const deleteAgentMutation = useMutation({
+    mutationFn: (id: string) => agentsApi.delete(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['agents'] }),
   })
 
   const [configuringAgent, setConfiguringAgent] = useState<Agent | null>(null)
@@ -162,7 +179,9 @@ export function Infrastructure() {
       <div style={{ display: 'flex', gap: 8, marginBottom: 24, borderBottom: '1px solid var(--color-border)', paddingBottom: 8 }}>
         {(['agents', 'environments'] as const).map(t => (
           <button key={t} className={`btn btn-sm ${tab === t ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setTab(t)} style={{ textTransform: 'capitalize' }}>{t}</button>
+            onClick={() => setTab(t)}>
+            {t === 'agents' ? 'Deployment Targets' : 'Environments'}
+          </button>
         ))}
       </div>
 
@@ -185,7 +204,7 @@ export function Infrastructure() {
               </thead>
               <tbody>
                 {agents.length === 0 ? (
-                  <tr><td colSpan={9}><div className="empty-state">No agents registered.</div></td></tr>
+                  <tr><td colSpan={9}><div className="empty-state">No deployment targets registered.</div></td></tr>
                 ) : agents.map(a => (
                   <tr key={a.id}>
                     <td><StatusBadge status={a.status} /></td>
@@ -210,9 +229,15 @@ export function Infrastructure() {
                     <td style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
                       {formatDistanceToNow(new Date(a.lastSeenAt), { addSuffix: true })}
                     </td>
-                    <td>
+                    <td style={{ display: 'flex', gap: 6 }}>
                       <button className="btn btn-sm btn-secondary" onClick={() => setConfiguringAgent(a)}>
                         Configure
+                      </button>
+                      <button
+                        className="btn btn-sm btn-danger"
+                        onClick={() => { if (confirm(`Deployment Target "${a.hostname}" löschen?`)) deleteAgentMutation.mutate(a.id) }}
+                      >
+                        Delete
                       </button>
                     </td>
                   </tr>
@@ -235,7 +260,10 @@ export function Infrastructure() {
                   <td style={{ fontWeight: 500 }}>{env.name}</td>
                   <td><span style={{ width: 14, height: 14, borderRadius: '50%', background: env.color, display: 'inline-block', marginRight: 8 }} />{env.color}</td>
                   <td style={{ color: 'var(--color-text-muted)' }}>{env.description || '—'}</td>
-                  <td>
+                  <td style={{ display: 'flex', gap: 6 }}>
+                    <button className="btn btn-sm btn-secondary" onClick={() => openEditEnv(env)}>
+                      Edit
+                    </button>
                     <button className="btn btn-sm btn-danger"
                       onClick={() => { if (confirm(`Delete environment "${env.name}"?`)) deleteEnvMutation.mutate(env.id) }}>
                       Delete
@@ -279,6 +307,40 @@ export function Infrastructure() {
           environments={environments}
           onClose={() => setConfiguringAgent(null)}
         />
+      )}
+
+      {editingEnv && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-title">Environment bearbeiten</div>
+            <div className="form-group">
+              <label className="form-label">Name *</label>
+              <input className="form-input" value={editForm.name}
+                onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Beschreibung</label>
+              <input className="form-input" value={editForm.description}
+                onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Farbe</label>
+              <input type="color" value={editForm.color}
+                onChange={e => setEditForm(f => ({ ...f, color: e.target.value }))}
+                style={{ width: '100%', height: 36, border: 'none', cursor: 'pointer', background: 'none' }} />
+            </div>
+            <div className="modal-actions">
+              <button className="btn btn-secondary" onClick={() => setEditingEnv(null)}>Abbrechen</button>
+              <button className="btn btn-primary" onClick={() => updateEnvMutation.mutate()}
+                disabled={!editForm.name || updateEnvMutation.isPending}>
+                {updateEnvMutation.isPending ? 'Speichern…' : 'Speichern'}
+              </button>
+            </div>
+            {updateEnvMutation.isError && (
+              <p style={{ color: 'var(--color-danger)', fontSize: 13, marginTop: 8 }}>Fehler beim Speichern.</p>
+            )}
+          </div>
+        </div>
       )}
     </div>
   )

@@ -86,7 +86,7 @@ function StepRolesEditor({ roles, onChange }: { roles: string[]; onChange: (role
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
       <span style={{ fontSize: 11, color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>Roles:</span>
       {roles.length === 0
-        ? <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>all agents</span>
+        ? <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>all deployment targets</span>
         : roles.map(r => (
           <span key={r} style={{ fontSize: 11, background: 'var(--color-surface-2,#2d2d2d)', border: '1px solid var(--color-border)', borderRadius: 4, padding: '1px 6px', display: 'flex', alignItems: 'center', gap: 4 }}>
             {r}
@@ -227,6 +227,7 @@ function VariablesTab({ projectId, variables, environments, qc }: { projectId: s
 }
 
 function ReleasesTab({ releases, environments, projectId }: { releases: Release[]; environments: Environment[]; projectId: string }) {
+  const qc = useQueryClient()
   const [deployModal, setDeployModal] = useState<Release | null>(null)
   const [envId, setEnvId] = useState('')
 
@@ -269,7 +270,7 @@ function ReleasesTab({ releases, environments, projectId }: { releases: Release[
             </div>
             {deployMutation.isError && (
               <p style={{ color: 'var(--color-danger)', fontSize: 13, marginBottom: 8 }}>
-                {(deployMutation.error as any)?.response?.data?.error ?? 'Deployment failed. Check agent is ONLINE and assigned to this environment.'}
+                {(deployMutation.error as any)?.response?.data?.error ?? 'Deployment failed. Check that a deployment target is ONLINE and assigned to this environment.'}
               </p>
             )}
             <div className="modal-actions">

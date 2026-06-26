@@ -96,6 +96,22 @@ public class AgentResource {
         return agent;
     }
 
+    // ── Delete ───────────────────────────────────────────────────────────────
+
+    @DELETE
+    @Path("/{id}")
+    @Transactional
+    @RolesAllowed("thaddeus-admin")
+    public Response delete(@PathParam("id") UUID id) {
+        Agent agent = Agent.findById(id);
+        if (agent == null) throw new NotFoundException();
+        streamManager.closeStream(id);
+        auditService.log(userId(), username(), "DELETE", "agent", id.toString(), null,
+                "{\"hostname\":\"" + agent.hostname + "\"}");
+        agent.delete();
+        return Response.noContent().build();
+    }
+
     // ── Deployment Targets: assign environment & roles (Issue #5) ────────────
 
     @PUT

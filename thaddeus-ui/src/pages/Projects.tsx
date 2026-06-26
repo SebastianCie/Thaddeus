@@ -33,7 +33,7 @@ export function Projects() {
   return (
     <div className="page">
       <div className="page-header">
-        <h1 className="page-title">Projects</h1>
+        <h1 className="page-title">Dashboard</h1>
         <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ New Project</button>
       </div>
 

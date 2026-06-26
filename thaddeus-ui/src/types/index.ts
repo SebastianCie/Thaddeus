@@ -42,8 +42,59 @@ export interface Project {
   name: string;
   description: string;
   packageId: string;
+  groupId: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ProjectGroup {
+  id: string;
+  name: string;
+  description: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DashboardEnvironmentStatus {
+  environmentId: string;
+  environmentName: string;
+  environmentColor: string;
+  status: DeploymentStatus | null;
+  releaseVersion: string | null;
+  deployedAt: string | null;
+}
+
+export interface DashboardProject {
+  projectId: string;
+  projectName: string;
+  environments: DashboardEnvironmentStatus[];
+}
+
+export interface DashboardGroup {
+  groupId: string | null;
+  groupName: string;
+  projects: DashboardProject[];
+}
+
+export interface ProjectDashboardEnvironmentStatus {
+  environmentId: string;
+  environmentName: string;
+  environmentColor: string;
+  status: DeploymentStatus | null;
+  deployedAt: string | null;
+}
+
+export interface ProjectDashboardRelease {
+  releaseId: string;
+  version: string;
+  createdAt: string;
+  environments: ProjectDashboardEnvironmentStatus[];
+}
+
+export interface ProjectDashboardView {
+  projectId: string;
+  projectName: string;
+  releases: ProjectDashboardRelease[];
 }
 
 export interface DeploymentStep {

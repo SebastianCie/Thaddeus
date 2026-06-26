@@ -7,9 +7,18 @@
   "loginWithEmailAllowed": true,
   "roles": {
     "realm": [
-      { "name": "thaddeus-admin",    "description": "Full admin access" },
-      { "name": "thaddeus-deployer", "description": "Can deploy and create releases" },
-      { "name": "thaddeus-viewer",   "description": "Read-only access" }
+      {
+        "name": "thaddeus-admin",
+        "description": "Full admin access"
+      },
+      {
+        "name": "thaddeus-deployer",
+        "description": "Can deploy and create releases"
+      },
+      {
+        "name": "thaddeus-viewer",
+        "description": "Read-only access"
+      }
     ]
   },
   "clients": [
@@ -26,8 +35,14 @@
       "clientId": "thaddeus-ui",
       "enabled": true,
       "publicClient": true,
-      "redirectUris": ["http://localhost:5173/*", "http://localhost:3000/*"],
-      "webOrigins": ["http://localhost:5173", "http://localhost:3000"],
+      "redirectUris": [
+        "http://localhost:5173/*",
+        "http://localhost:3000/*"
+      ],
+      "webOrigins": [
+        "http://localhost:5173",
+        "http://localhost:3000"
+      ],
       "standardFlowEnabled": true,
       "protocol": "openid-connect",
       "protocolMappers": [
@@ -76,8 +91,16 @@
       "lastName": "Thaddeus",
       "enabled": true,
       "emailVerified": true,
-      "credentials": [{ "type": "password", "value": "admin", "temporary": false }],
-      "realmRoles": ["thaddeus-admin"]
+      "credentials": [
+        {
+          "type": "password",
+          "value": "admin",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "thaddeus-admin"
+      ]
     },
     {
       "username": "deployer",
@@ -86,8 +109,19 @@
       "lastName": "Thaddeus",
       "enabled": true,
       "emailVerified": true,
-      "credentials": [{ "type": "password", "value": "deployer", "temporary": false }],
-      "realmRoles": ["thaddeus-deployer"]
+      "credentials": [
+        {
+          "type": "password",
+          "value": "deployer",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "thaddeus-deployer"
+      ]
     }
-  ]
+  ],
+  "accessTokenLifespan": 1800,
+  "ssoSessionIdleTimeout": 3600,
+  "ssoSessionMaxLifespan": 36000
 }

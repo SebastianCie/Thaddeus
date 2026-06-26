@@ -9,7 +9,9 @@ import './index.css'
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 1,
+      // Retry up to 5 times with exponential backoff (covers Quarkus live-reload window ~1-3s)
+      retry: 5,
+      retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 15_000),
       staleTime: 30_000,
     },
   },
