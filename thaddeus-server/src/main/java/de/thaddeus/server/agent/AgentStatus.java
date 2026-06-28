@@ -1,5 +1,5 @@
 package de.thaddeus.server.agent;
 
 public enum AgentStatus {
-    ONLINE, OFFLINE
+    ONLINE, OFFLINE, DISABLED
 }

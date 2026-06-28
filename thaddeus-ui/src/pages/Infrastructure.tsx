@@ -128,7 +128,6 @@ function AssignTargetsModal({ agent, environments, onClose }: {
 
 export function Infrastructure() {
   const qc = useQueryClient()
-  const [tab, setTab] = useState<'agents' | 'environments'>('agents')
 
   const { data: agents = [], isLoading: agentsLoading } = useQuery<Agent[]>({
     queryKey: ['agents'], queryFn: agentsApi.list, refetchInterval: 15_000,
@@ -137,31 +136,18 @@ export function Infrastructure() {
     queryKey: ['environments'], queryFn: environmentsApi.list,
   })
 
-  const [showEnvModal, setShowEnvModal] = useState(false)
-  const [envForm, setEnvForm] = useState({ name: '', description: '', color: '#6366f1' })
-  const [editingEnv, setEditingEnv] = useState<Environment | null>(null)
-  const [editForm, setEditForm] = useState({ name: '', description: '', color: '#6366f1' })
-
-  const createEnvMutation = useMutation({
-    mutationFn: () => environmentsApi.create(envForm),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['environments'] }); setShowEnvModal(false) },
-  })
-  const updateEnvMutation = useMutation({
-    mutationFn: () => environmentsApi.update(editingEnv!.id, editForm),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['environments'] }); setEditingEnv(null) },
-  })
-  const deleteEnvMutation = useMutation({
-    mutationFn: (id: string) => environmentsApi.delete(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['environments'] }),
-  })
-
-  function openEditEnv(env: Environment) {
-    setEditForm({ name: env.name, description: env.description ?? '', color: env.color })
-    setEditingEnv(env)
-  }
-
   const deleteAgentMutation = useMutation({
     mutationFn: (id: string) => agentsApi.delete(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['agents'] }),
+  })
+
+  const disableMutation = useMutation({
+    mutationFn: (id: string) => agentsApi.disable(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['agents'] }),
+  })
+
+  const enableMutation = useMutation({
+    mutationFn: (id: string) => agentsApi.enable(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['agents'] }),
   })
 
@@ -170,102 +156,77 @@ export function Infrastructure() {
   return (
     <div className="page">
       <div className="page-header">
-        <h1 className="page-title">Infrastructure</h1>
-        {tab === 'environments' && (
-          <button className="btn btn-primary" onClick={() => setShowEnvModal(true)}>+ New Environment</button>
-        )}
+        <h1 className="page-title">Deployment Targets</h1>
       </div>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 24, borderBottom: '1px solid var(--color-border)', paddingBottom: 8 }}>
-        {(['agents', 'environments'] as const).map(t => (
-          <button key={t} className={`btn btn-sm ${tab === t ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setTab(t)}>
-            {t === 'agents' ? 'Deployment Targets' : 'Environments'}
-          </button>
-        ))}
-      </div>
-
-      {tab === 'agents' && (
-        agentsLoading ? <div className="loading">Loading…</div> : (
-          <div className="card" style={{ padding: 0 }}>
-            <table>
-              <thead>
-                <tr>
-                  <th>Status</th>
-                  <th>Hostname</th>
-                  <th>IP</th>
-                  <th>OS</th>
-                  <th>Version</th>
-                  <th>Environments</th>
-                  <th>Roles</th>
-                  <th>Last Seen</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {agents.length === 0 ? (
-                  <tr><td colSpan={9}><div className="empty-state">No deployment targets registered.</div></td></tr>
-                ) : agents.map(a => (
-                  <tr key={a.id}>
-                    <td><StatusBadge status={a.status} /></td>
-                    <td style={{ fontWeight: 500 }}>{a.hostname}</td>
-                    <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{a.ip}</td>
-                    <td style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{a.osVersion}</td>
-                    <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{a.agentVersion}</td>
-                    <td style={{ fontSize: 12 }}>
-                      {a.agentEnvironments?.length
-                        ? a.agentEnvironments.map(e => (
-                          <span key={e.id} className="badge badge-pending" style={{ marginRight: 4 }}>{e.name}</span>
-                        ))
-                        : <span style={{ color: 'var(--color-text-muted)' }}>—</span>}
-                    </td>
-                    <td style={{ fontSize: 12 }}>
-                      {a.agentRoles?.length
-                        ? a.agentRoles.map(r => (
-                          <span key={r.id} className="badge badge-pending" style={{ marginRight: 4, background: 'var(--color-surface-2, #2d2d2d)' }}>{r.name}</span>
-                        ))
-                        : <span style={{ color: 'var(--color-text-muted)' }}>—</span>}
-                    </td>
-                    <td style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
-                      {formatDistanceToNow(new Date(a.lastSeenAt), { addSuffix: true })}
-                    </td>
-                    <td style={{ display: 'flex', gap: 6 }}>
-                      <button className="btn btn-sm btn-secondary" onClick={() => setConfiguringAgent(a)}>
-                        Configure
-                      </button>
-                      <button
-                        className="btn btn-sm btn-danger"
-                        onClick={() => { if (confirm(`Deployment Target "${a.hostname}" löschen?`)) deleteAgentMutation.mutate(a.id) }}
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )
-      )}
-
-      {tab === 'environments' && (
+      {agentsLoading ? <div className="loading">Loading…</div> : (
         <div className="card" style={{ padding: 0 }}>
           <table>
-            <thead><tr><th>Name</th><th>Color</th><th>Description</th><th></th></tr></thead>
+            <thead>
+              <tr>
+                <th>Status</th>
+                <th>Hostname</th>
+                <th>IP</th>
+                <th>OS</th>
+                <th>Version</th>
+                <th>Environments</th>
+                <th>Roles</th>
+                <th>Last Seen</th>
+                <th></th>
+              </tr>
+            </thead>
             <tbody>
-              {environments.length === 0 ? (
-                <tr><td colSpan={4}><div className="empty-state">No environments. Create one to get started.</div></td></tr>
-              ) : environments.map(env => (
-                <tr key={env.id}>
-                  <td style={{ fontWeight: 500 }}>{env.name}</td>
-                  <td><span style={{ width: 14, height: 14, borderRadius: '50%', background: env.color, display: 'inline-block', marginRight: 8 }} />{env.color}</td>
-                  <td style={{ color: 'var(--color-text-muted)' }}>{env.description || '—'}</td>
+              {agents.length === 0 ? (
+                <tr><td colSpan={9}><div className="empty-state">No deployment targets registered.</div></td></tr>
+              ) : agents.map(a => (
+                <tr key={a.id}>
+                  <td><StatusBadge status={a.status} /></td>
+                  <td style={{ fontWeight: 500 }}>{a.hostname}</td>
+                  <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{a.ip}</td>
+                  <td style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{a.osVersion}</td>
+                  <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{a.agentVersion}</td>
+                  <td style={{ fontSize: 12 }}>
+                    {a.agentEnvironments?.length
+                      ? a.agentEnvironments.map(e => (
+                        <span key={e.id} className="badge badge-pending" style={{ marginRight: 4 }}>{e.name}</span>
+                      ))
+                      : <span style={{ color: 'var(--color-text-muted)' }}>—</span>}
+                  </td>
+                  <td style={{ fontSize: 12 }}>
+                    {a.agentRoles?.length
+                      ? a.agentRoles.map(r => (
+                        <span key={r.id} className="badge badge-pending" style={{ marginRight: 4, background: 'var(--color-surface-2, #2d2d2d)' }}>{r.name}</span>
+                      ))
+                      : <span style={{ color: 'var(--color-text-muted)' }}>—</span>}
+                  </td>
+                  <td style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
+                    {formatDistanceToNow(new Date(a.lastSeenAt), { addSuffix: true })}
+                  </td>
                   <td style={{ display: 'flex', gap: 6 }}>
-                    <button className="btn btn-sm btn-secondary" onClick={() => openEditEnv(env)}>
-                      Edit
+                    <button className="btn btn-sm btn-secondary" onClick={() => setConfiguringAgent(a)}>
+                      Configure
                     </button>
-                    <button className="btn btn-sm btn-danger"
-                      onClick={() => { if (confirm(`Delete environment "${env.name}"?`)) deleteEnvMutation.mutate(env.id) }}>
+                    {a.status === 'DISABLED' ? (
+                      <button
+                        className="btn btn-sm btn-secondary"
+                        onClick={() => enableMutation.mutate(a.id)}
+                        disabled={enableMutation.isPending}
+                      >
+                        Enable
+                      </button>
+                    ) : (
+                      <button
+                        className="btn btn-sm btn-secondary"
+                        onClick={() => disableMutation.mutate(a.id)}
+                        disabled={disableMutation.isPending}
+                      >
+                        Disable
+                      </button>
+                    )}
+                    <button
+                      className="btn btn-sm btn-danger"
+                      onClick={() => { if (confirm(`Deployment Target "${a.hostname}" löschen?`)) deleteAgentMutation.mutate(a.id) }}
+                    >
                       Delete
                     </button>
                   </td>
@@ -276,71 +237,12 @@ export function Infrastructure() {
         </div>
       )}
 
-      {showEnvModal && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <div className="modal-title">Create Environment</div>
-            <div className="form-group">
-              <label className="form-label">Name *</label>
-              <input className="form-input" value={envForm.name} onChange={e => setEnvForm(f => ({ ...f, name: e.target.value }))} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Description</label>
-              <input className="form-input" value={envForm.description} onChange={e => setEnvForm(f => ({ ...f, description: e.target.value }))} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Color</label>
-              <input type="color" value={envForm.color} onChange={e => setEnvForm(f => ({ ...f, color: e.target.value }))}
-                style={{ width: '100%', height: 36, border: 'none', cursor: 'pointer', background: 'none' }} />
-            </div>
-            <div className="modal-actions">
-              <button className="btn btn-secondary" onClick={() => setShowEnvModal(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={() => createEnvMutation.mutate()} disabled={!envForm.name}>Create</button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {configuringAgent && (
         <AssignTargetsModal
           agent={configuringAgent}
           environments={environments}
           onClose={() => setConfiguringAgent(null)}
         />
-      )}
-
-      {editingEnv && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <div className="modal-title">Environment bearbeiten</div>
-            <div className="form-group">
-              <label className="form-label">Name *</label>
-              <input className="form-input" value={editForm.name}
-                onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Beschreibung</label>
-              <input className="form-input" value={editForm.description}
-                onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Farbe</label>
-              <input type="color" value={editForm.color}
-                onChange={e => setEditForm(f => ({ ...f, color: e.target.value }))}
-                style={{ width: '100%', height: 36, border: 'none', cursor: 'pointer', background: 'none' }} />
-            </div>
-            <div className="modal-actions">
-              <button className="btn btn-secondary" onClick={() => setEditingEnv(null)}>Abbrechen</button>
-              <button className="btn btn-primary" onClick={() => updateEnvMutation.mutate()}
-                disabled={!editForm.name || updateEnvMutation.isPending}>
-                {updateEnvMutation.isPending ? 'Speichern…' : 'Speichern'}
-              </button>
-            </div>
-            {updateEnvMutation.isError && (
-              <p style={{ color: 'var(--color-danger)', fontSize: 13, marginTop: 8 }}>Fehler beim Speichern.</p>
-            )}
-          </div>
-        </div>
       )}
     </div>
   )

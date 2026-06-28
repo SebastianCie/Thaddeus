@@ -42,7 +42,9 @@ public class AgentResource {
         agent.ip = req.ip();
         agent.osVersion = req.osVersion();
         agent.agentVersion = req.agentVersion();
-        agent.status = AgentStatus.ONLINE;
+        if (agent.status != AgentStatus.DISABLED) {
+            agent.status = AgentStatus.ONLINE;
+        }
         agent.lastSeenAt = Instant.now();
         if (agent.id == null) {
             agent.registeredAt = Instant.now();
@@ -75,8 +77,10 @@ public class AgentResource {
     void markOnline(UUID id) {
         Agent agent = Agent.findById(id);
         if (agent == null) throw new NotFoundException();
-        agent.status = AgentStatus.ONLINE;
-        agent.lastSeenAt = Instant.now();
+        if (agent.status != AgentStatus.DISABLED) {
+            agent.status = AgentStatus.ONLINE;
+            agent.lastSeenAt = Instant.now();
+        }
     }
 
     // ── Agent list & status (Issue #2 UI) ────────────────────────────────────
@@ -110,6 +114,34 @@ public class AgentResource {
                 "{\"hostname\":\"" + agent.hostname + "\"}");
         agent.delete();
         return Response.noContent().build();
+    }
+
+    // ── Disable / Enable ─────────────────────────────────────────────────────
+
+    @PATCH
+    @Path("/{id}/disable")
+    @Transactional
+    @RolesAllowed("thaddeus-admin")
+    public Agent disable(@PathParam("id") UUID id) {
+        Agent agent = Agent.findById(id);
+        if (agent == null) throw new NotFoundException();
+        agent.status = AgentStatus.DISABLED;
+        auditService.log(userId(), username(), "DISABLE", "agent", id.toString(), null,
+                "{\"hostname\":\"" + agent.hostname + "\"}");
+        return agent;
+    }
+
+    @PATCH
+    @Path("/{id}/enable")
+    @Transactional
+    @RolesAllowed("thaddeus-admin")
+    public Agent enable(@PathParam("id") UUID id) {
+        Agent agent = Agent.findById(id);
+        if (agent == null) throw new NotFoundException();
+        agent.status = streamManager.isConnected(id) ? AgentStatus.ONLINE : AgentStatus.OFFLINE;
+        auditService.log(userId(), username(), "ENABLE", "agent", id.toString(), null,
+                "{\"hostname\":\"" + agent.hostname + "\"}");
+        return agent;
     }
 
     // ── Deployment Targets: assign environment & roles (Issue #5) ────────────

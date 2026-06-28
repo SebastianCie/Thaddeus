@@ -99,7 +99,7 @@ export function Library() {
     <div className="page">
       <div className="page-header">
         <h1 className="page-title">Library — Packages</h1>
-        <button className="btn btn-primary" onClick={() => setShowUpload(true)}>+ Upload Package</button>
+        <button className="btn btn-green" onClick={() => setShowUpload(true)}>+ Upload Package</button>
       </div>
 
       <div style={{ marginBottom: 16 }}>
@@ -127,7 +127,8 @@ export function Library() {
                     <td style={{ fontSize: 12 }}>{format(new Date(p.uploadedAt), 'yyyy-MM-dd HH:mm')}</td>
                     <td style={{ display: 'flex', gap: 6 }}>
                       <button className="btn btn-sm btn-secondary"
-                        onClick={() => packagesApi.download(p.packageId, p.version, p.filename)}>
+                        onClick={() => packagesApi.download(p.packageId, p.version, p.filename)
+                          .catch(() => alert('Download failed. Please try again.'))}>
                         ↓ Download
                       </button>
                       <button className="btn btn-sm btn-danger"

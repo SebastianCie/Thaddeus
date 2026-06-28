@@ -4,7 +4,9 @@ import io.quarkus.oidc.client.OidcClient;
 import io.quarkus.oidc.client.Tokens;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import org.jboss.logging.Logger;
 
+import java.time.Duration;
 import java.time.Instant;
 
 /**
@@ -13,6 +15,8 @@ import java.time.Instant;
 @ApplicationScoped
 public class TokenProvider {
 
+    private static final Logger log = Logger.getLogger(TokenProvider.class);
+
     @Inject OidcClient oidcClient;
 
     private String cachedToken;
@@ -20,9 +24,10 @@ public class TokenProvider {
 
     public synchronized String getToken() {
         if (cachedToken == null || Instant.now().isAfter(expiresAt.minusSeconds(30))) {
-            Tokens tokens = oidcClient.getTokens().await().indefinitely();
+            Tokens tokens = oidcClient.getTokens().await().atMost(Duration.ofSeconds(10));
             cachedToken = tokens.getAccessToken();
             expiresAt = Instant.now().plusSeconds(300);
+            log.debug("OIDC token refreshed");
         }
         return cachedToken;
     }

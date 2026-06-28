@@ -1,4 +1,4 @@
-export type AgentStatus = 'ONLINE' | 'OFFLINE';
+export type AgentStatus = 'ONLINE' | 'OFFLINE' | 'DISABLED';
 export type DeploymentStatus = 'PENDING' | 'RUNNING' | 'SUCCESS' | 'FAILED' | 'CANCELLED';
 
 export interface Agent {
@@ -43,6 +43,35 @@ export interface Project {
   description: string;
   packageId: string;
   groupId: string | null;
+  lifecycleId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DeploymentLifecycle {
+  id: string;
+  name: string;
+  description: string;
+  phases: LifecyclePhase[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LifecyclePhase {
+  id: string;
+  name: string;
+  position: number;
+  optional: boolean;
+  autoDeploy: boolean;
+  environments: Environment[];
+}
+
+export interface LifecycleListItem {
+  id: string;
+  name: string;
+  description: string;
+  phaseCount: number;
+  projectCount: number;
   createdAt: string;
   updatedAt: string;
 }

@@ -1,23 +1,21 @@
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { projectsApi, releasesApi, environmentsApi, packagesApi } from '../api/client'
-import type { Project, DeploymentStep, Variable, Release, Environment, Package } from '../types'
+import { projectsApi, releasesApi, environmentsApi } from '../api/client'
+import type { Project, Variable, Release, Environment } from '../types'
 
-type Tab = 'steps' | 'variables' | 'releases'
+type Tab = 'variables' | 'releases'
 
 export function ProjectDetail() {
   const { id } = useParams<{ id: string }>()
   const qc = useQueryClient()
-  const [tab, setTab] = useState<Tab>('steps')
+  const [tab, setTab] = useState<Tab>('variables')
 
   const { data: project } = useQuery<Project>({ queryKey: ['project', id], queryFn: () => projectsApi.get(id!), enabled: !!id })
-  const { data: steps = [] } = useQuery<DeploymentStep[]>({ queryKey: ['steps', id], queryFn: () => projectsApi.getSteps(id!), enabled: !!id })
   const { data: variables = [] } = useQuery<Variable[]>({ queryKey: ['variables', id], queryFn: () => projectsApi.getVariables(id!), enabled: !!id })
   const { data: releases = [] } = useQuery<Release[]>({ queryKey: ['releases', id], queryFn: () => releasesApi.list(id!), enabled: !!id })
   const { data: environments = [] } = useQuery<Environment[]>({ queryKey: ['environments'], queryFn: environmentsApi.list })
 
-  // Create release modal state
   const [showRelease, setShowRelease] = useState(false)
   const [releaseForm, setReleaseForm] = useState({ packageVersion: '' })
 
@@ -32,11 +30,11 @@ export function ProjectDetail() {
     <div className="page">
       <div className="page-header">
         <h1 className="page-title">{project.name}</h1>
-        <button className="btn btn-primary" onClick={() => setShowRelease(true)}>+ Create Release</button>
+        <button className="btn btn-green" onClick={() => setShowRelease(true)}>+ Create Release</button>
       </div>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 24, borderBottom: '1px solid var(--color-border)', paddingBottom: 8 }}>
-        {(['steps', 'variables', 'releases'] as Tab[]).map(t => (
+        {(['variables', 'releases'] as Tab[]).map(t => (
           <button
             key={t}
             className={`btn btn-sm ${tab === t ? 'btn-primary' : 'btn-secondary'}`}
@@ -46,7 +44,6 @@ export function ProjectDetail() {
         ))}
       </div>
 
-      {tab === 'steps' && <StepsTab projectId={id!} steps={steps} qc={qc} />}
       {tab === 'variables' && <VariablesTab projectId={id!} variables={variables} environments={environments} qc={qc} />}
       {tab === 'releases' && <ReleasesTab releases={releases} environments={environments} projectId={id!} />}
 
@@ -73,86 +70,6 @@ export function ProjectDetail() {
   )
 }
 
-function StepRolesEditor({ roles, onChange }: { roles: string[]; onChange: (roles: string[]) => void }) {
-  const [input, setInput] = useState('')
-
-  function add() {
-    const name = input.trim().toLowerCase()
-    if (name && !roles.includes(name)) onChange([...roles, name])
-    setInput('')
-  }
-
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-      <span style={{ fontSize: 11, color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>Roles:</span>
-      {roles.length === 0
-        ? <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>all deployment targets</span>
-        : roles.map(r => (
-          <span key={r} style={{ fontSize: 11, background: 'var(--color-surface-2,#2d2d2d)', border: '1px solid var(--color-border)', borderRadius: 4, padding: '1px 6px', display: 'flex', alignItems: 'center', gap: 4 }}>
-            {r}
-            <button onClick={() => onChange(roles.filter(x => x !== r))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', padding: 0, lineHeight: 1, fontSize: 12 }}>×</button>
-          </span>
-        ))}
-      <input
-        value={input}
-        onChange={e => setInput(e.target.value)}
-        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); add() } }}
-        placeholder="add role…"
-        style={{ fontSize: 11, border: '1px solid var(--color-border)', borderRadius: 4, padding: '2px 6px', background: 'transparent', color: 'inherit', width: 90 }}
-      />
-    </div>
-  )
-}
-
-function StepsTab({ projectId, steps, qc }: { projectId: string; steps: DeploymentStep[]; qc: any }) {
-  const [localSteps, setLocalSteps] = useState(steps)
-  const saveMutation = useMutation({
-    mutationFn: () => projectsApi.replaceSteps(projectId, localSteps.map(s => ({
-      type: s.type,
-      configJson: s.configJson,
-      targetRoles: s.targetRoles ?? [],
-    }))),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['steps', projectId] }),
-  })
-
-  function updateRoles(i: number, roles: string[]) {
-    setLocalSteps(s => s.map((step, j) => j === i ? { ...step, targetRoles: roles } : step))
-  }
-
-  return (
-    <div>
-      {localSteps.map((step, i) => (
-        <div key={i} className="card" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={{ color: 'var(--color-text-muted)', minWidth: 24 }}>{i + 1}</span>
-            <span className="badge badge-pending" style={{ fontFamily: 'monospace' }}>{step.type}</span>
-            <textarea
-              value={step.configJson}
-              onChange={e => setLocalSteps(s => s.map((st, j) => j === i ? { ...st, configJson: e.target.value } : st))}
-              rows={3}
-              style={{ flex: 1, fontSize: 12, fontFamily: 'monospace', background: 'var(--color-surface-2,#1e1e1e)', color: 'inherit', border: '1px solid var(--color-border)', borderRadius: 4, padding: '4px 8px', resize: 'vertical' }}
-            />
-            <button className="btn btn-sm btn-danger" onClick={() => setLocalSteps(s => s.filter((_, j) => j !== i))}>✕</button>
-          </div>
-          <StepRolesEditor roles={step.targetRoles ?? []} onChange={roles => updateRoles(i, roles)} />
-        </div>
-      ))}
-      <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-        {['DEPLOY_IIS_WEBSITE', 'DEPLOY_IIS_WEBAPP', 'RUN_POWERSHELL_SCRIPT'].map(type => (
-          <button key={type} className="btn btn-secondary btn-sm"
-            onClick={() => setLocalSteps(s => [...s, { id: '', projectId, position: s.length, type, configJson: '{}', targetRoles: [] }])}>
-            + {type}
-          </button>
-        ))}
-        <button className="btn btn-primary btn-sm" onClick={() => saveMutation.mutate()}
-          disabled={saveMutation.isPending}>
-          {saveMutation.isPending ? 'Saving…' : 'Save Steps'}
-        </button>
-      </div>
-    </div>
-  )
-}
-
 function VariablesTab({ projectId, variables, environments, qc }: { projectId: string; variables: Variable[]; environments: Environment[]; qc: any }) {
   const [showModal, setShowModal] = useState(false)
   const [form, setForm] = useState({ name: '', value: '', isSecret: false, environmentId: '' })
@@ -171,7 +88,7 @@ function VariablesTab({ projectId, variables, environments, qc }: { projectId: s
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-        <button className="btn btn-primary btn-sm" onClick={() => setShowModal(true)}>+ Add Variable</button>
+        <button className="btn btn-green" onClick={() => setShowModal(true)}>+ Add Variable</button>
       </div>
       <div className="card" style={{ padding: 0 }}>
         <table>

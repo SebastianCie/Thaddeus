@@ -2,6 +2,7 @@ package de.thaddeus.server.environment;
 
 import de.thaddeus.server.agent.Agent;
 import de.thaddeus.server.audit.AuditService;
+import de.thaddeus.server.deployment.Deployment;
 import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
@@ -74,7 +75,12 @@ public class EnvironmentResource {
         long agentCount = Agent.count("JOIN agentEnvironments ae WHERE ae.id = ?1", id);
         if (agentCount > 0) {
             throw new WebApplicationException(
-                    Response.status(409).entity("{\"error\":\"Environment has active deployment targets\"}").build());
+                    Response.status(409).entity("{\"error\":\"Environment is assigned to deployment targets\"}").build());
+        }
+        long deploymentCount = Deployment.count("environmentId", id);
+        if (deploymentCount > 0) {
+            throw new WebApplicationException(
+                    Response.status(409).entity("{\"error\":\"Environment has deployment history and cannot be deleted\"}").build());
         }
         auditService.log(userId(), username(), "DELETE", "environment", id.toString(), null,
                 "{\"name\":\"" + env.name + "\"}");

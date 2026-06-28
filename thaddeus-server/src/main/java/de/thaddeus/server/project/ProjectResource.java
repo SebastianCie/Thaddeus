@@ -66,6 +66,7 @@ public class ProjectResource {
         project.description = update.description;
         project.packageId = update.packageId;
         project.groupId = update.groupId;
+        project.lifecycleId = update.lifecycleId;
         auditService.log(userId(), username(), "UPDATE", "project", id.toString(), null, null);
         return project;
     }

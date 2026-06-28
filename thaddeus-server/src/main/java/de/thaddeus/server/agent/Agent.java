@@ -92,6 +92,6 @@ public class Agent extends PanacheEntityBase {
 
     public static void refreshLastSeen(Set<UUID> ids) {
         if (ids.isEmpty()) return;
-        update("lastSeenAt = ?1, status = 'ONLINE' WHERE id IN ?2", Instant.now(), ids);
+        update("lastSeenAt = ?1, status = 'ONLINE' WHERE id IN ?2 AND status != 'DISABLED'", Instant.now(), ids);
     }
 }

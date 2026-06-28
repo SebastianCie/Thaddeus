@@ -14,7 +14,6 @@ api.interceptors.request.use(async (config) => {
       (window as any).__kc_token = keycloak.token;
     }
   } catch {
-    // Token refresh failed — redirect to login
     keycloak.logout();
     return Promise.reject(new Error('Session expired'));
   }
@@ -25,11 +24,32 @@ api.interceptors.request.use(async (config) => {
   return config;
 });
 
+// After standby the JS client may have stale state — force-refresh on 401 and retry once
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    if (error.response?.status === 401 && !error.config._retried) {
+      error.config._retried = true;
+      try {
+        await keycloak.updateToken(-1);
+        (window as any).__kc_token = keycloak.token;
+        error.config.headers.Authorization = `Bearer ${keycloak.token}`;
+        return api(error.config);
+      } catch {
+        keycloak.logout();
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 // ── Agents ────────────────────────────────────────────────────────────────────
 export const agentsApi = {
   list: () => api.get('/agents').then(r => r.data),
   get: (id: string) => api.get(`/agents/${id}`).then(r => r.data),
   assignTargets: (id: string, data: object) => api.put(`/agents/${id}/targets`, data).then(r => r.data),
+  disable: (id: string) => api.patch(`/agents/${id}/disable`).then(r => r.data),
+  enable: (id: string) => api.patch(`/agents/${id}/enable`).then(r => r.data),
   delete: (id: string) => api.delete(`/agents/${id}`),
 };
 
@@ -61,8 +81,10 @@ export const packagesApi = {
     const a = document.createElement('a')
     a.href = url
     a.download = filename
+    document.body.appendChild(a)
     a.click()
-    URL.revokeObjectURL(url)
+    document.body.removeChild(a)
+    setTimeout(() => URL.revokeObjectURL(url), 100)
   },
   delete: (packageId: string, version: string) =>
     api.delete(`/packages/${packageId}/${version}`),
@@ -123,6 +145,15 @@ export const projectGroupsApi = {
 export const dashboardApi = {
   get: () => api.get('/dashboard').then(r => r.data),
   getProject: (id: string) => api.get(`/dashboard/project/${id}`).then(r => r.data),
+};
+
+// ── Deployment Lifecycles ─────────────────────────────────────────────────────
+export const lifecyclesApi = {
+  list: () => api.get('/lifecycles').then(r => r.data),
+  get: (id: string) => api.get(`/lifecycles/${id}`).then(r => r.data),
+  create: (data: object) => api.post('/lifecycles', data).then(r => r.data),
+  update: (id: string, data: object) => api.put(`/lifecycles/${id}`, data).then(r => r.data),
+  delete: (id: string) => api.delete(`/lifecycles/${id}`),
 };
 
 // ── Audit ─────────────────────────────────────────────────────────────────────
