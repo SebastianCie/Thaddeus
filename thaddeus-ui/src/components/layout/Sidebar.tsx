@@ -34,9 +34,11 @@ export function Sidebar() {
 
   const items: NavItem[] = projectId
     ? [
-        { to: `/projects/${projectId}/dashboard`,  label: 'Dashboard',           icon: '⬡' },
-        { to: `/projects/${projectId}/process`,    label: 'Process Editor',      icon: '⬢' },
+        { to: `/projects/${projectId}/dashboard`,  label: 'Dashboard',            icon: '⬡' },
+        { to: `/projects/${projectId}/releases`,   label: 'Releases',             icon: '⬢' },
+        { to: `/projects/${projectId}/process`,    label: 'Process Editor',       icon: '⬢' },
         { to: `/projects/${projectId}/lifecycle`,  label: 'Deployment Lifecycle', icon: '⬢' },
+        { to: `/projects/${projectId}/variables`,  label: 'Project Variables',    icon: '⬢' },
       ]
     : sectionItems[getSection(pathname)]
 

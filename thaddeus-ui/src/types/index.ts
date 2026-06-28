@@ -96,6 +96,7 @@ export interface DashboardEnvironmentStatus {
 export interface DashboardProject {
   projectId: string;
   projectName: string;
+  description: string | null;
   environments: DashboardEnvironmentStatus[];
 }
 
@@ -111,6 +112,7 @@ export interface ProjectDashboardEnvironmentStatus {
   environmentColor: string;
   status: DeploymentStatus | null;
   deployedAt: string | null;
+  deploymentId: string | null;
 }
 
 export interface ProjectDashboardRelease {
@@ -149,6 +151,9 @@ export interface Release {
   version: string;
   packageId: string;
   packageVersion: string;
+  lifecycleName: string | null;
+  releaseNotes: string | null;
+  processSnapshotJson: string;
   createdAt: string;
 }
 

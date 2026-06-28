@@ -3,6 +3,7 @@ package de.thaddeus.server.release;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.thaddeus.server.audit.AuditService;
 import de.thaddeus.server.common.EncryptionService;
+import de.thaddeus.server.lifecycle.DeploymentLifecycle;
 import de.thaddeus.server.project.DeploymentStep;
 import de.thaddeus.server.project.Project;
 import de.thaddeus.server.project.ProjectVariable;
@@ -68,10 +69,15 @@ public class ReleaseResource {
 
         Release release = new Release();
         release.projectId = projectId;
-        release.version = Release.nextVersion(projectId);
+        release.version = resolveVersion(req.version(), projectId);
         release.packageId = req.packageId() != null ? req.packageId() : project.packageId;
         release.packageVersion = req.packageVersion();
+        release.releaseNotes = req.releaseNotes();
         release.processSnapshotJson = processSnapshot;
+        if (project.lifecycleId != null) {
+            DeploymentLifecycle lc = DeploymentLifecycle.findById(project.lifecycleId);
+            release.lifecycleName = lc != null ? lc.name : null;
+        }
         release.persist();
 
         // Snapshot all variables (Issue #13)
@@ -116,6 +122,31 @@ public class ReleaseResource {
         return identity.isAnonymous() ? null : identity.getPrincipal().getName();
     }
 
-    public record CreateReleaseRequest(String packageId, String packageVersion) {}
+    public record CreateReleaseRequest(String version, String packageId, String packageVersion, String releaseNotes) {}
+
+    private String resolveVersion(String pattern, UUID projectId) {
+        if (pattern == null || pattern.isBlank()) throw new jakarta.ws.rs.BadRequestException("version is required");
+        if (!pattern.contains("i")) return pattern.trim();
+
+        Release last = Release.find("projectId = ?1 ORDER BY createdAt DESC", projectId).firstResult();
+        String lastVersion = (last != null) ? last.version.split("-")[0] : "0.0.0";
+        String[] lastParts = lastVersion.split("\\.");
+
+        String[] sides = pattern.trim().split("-", 2);
+        String suffix = sides.length > 1 ? "-" + sides[1] : "";
+        String[] parts = sides[0].split("\\.");
+
+        StringBuilder sb = new StringBuilder();
+        for (int idx = 0; idx < parts.length; idx++) {
+            if (idx > 0) sb.append('.');
+            if ("i".equals(parts[idx])) {
+                int prev = (idx < lastParts.length) ? Integer.parseInt(lastParts[idx]) : 0;
+                sb.append(prev + 1);
+            } else {
+                sb.append(parts[idx]);
+            }
+        }
+        return sb + suffix;
+    }
     public record VariableView(UUID id, String name, String value, boolean isSecret, UUID environmentId) {}
 }

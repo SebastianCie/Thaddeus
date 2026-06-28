@@ -1,76 +1,102 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { format } from 'date-fns'
+import { formatDistanceToNow } from 'date-fns'
 import { dashboardApi, projectsApi, projectGroupsApi } from '../api/client'
-import type { DashboardEnvironmentStatus, DashboardGroup, DeploymentStatus } from '../types'
+import type { DashboardGroup, DashboardProject } from '../types'
 
-// ── Status cell ──────────────────────────────────────────────────────────────
-
-function StatusCell({ env }: { env: DashboardEnvironmentStatus }) {
-  if (!env.status || !env.releaseVersion) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--color-text-muted)' }}>
-        <span style={{ fontSize: 18, opacity: 0.5 }}>⊘</span>
-        <span style={{ fontSize: 13 }}>No Data</span>
-      </div>
-    )
-  }
-
-  const isSuccess = env.status === 'SUCCESS'
-  const isRunning = env.status === 'RUNNING' || env.status === 'PENDING'
-  const bgColor = isSuccess
-    ? 'var(--color-success)'
-    : isRunning
-    ? 'var(--color-primary)'
-    : 'var(--color-error)'
-
-  const icon = isSuccess ? '✓' : isRunning ? '⟳' : '✕'
-
-  const dateStr = env.deployedAt
-    ? format(new Date(env.deployedAt), 'MMM d, yyyy h:mm aa')
-    : null
-
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-      <div style={{
-        width: 32, height: 32, borderRadius: 6, background: bgColor,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        color: '#fff', fontSize: 15, fontWeight: 700, flexShrink: 0,
-      }}>
-        {icon}
-      </div>
-      <div>
-        <div style={{ fontWeight: 600, fontSize: 13, lineHeight: 1.3 }}>{env.releaseVersion}</div>
-        {dateStr && (
-          <div style={{ fontSize: 11, color: 'var(--color-text-muted)', lineHeight: 1.3 }}>{dateStr}</div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// ── Project avatar ────────────────────────────────────────────────────────────
+// ── Project Avatar ────────────────────────────────────────────────────────────
 
 function ProjectAvatar({ name }: { name: string }) {
   const initials = name.split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase()
   const hue = name.split('').reduce((n, c) => n + c.charCodeAt(0), 0) % 360
   return (
     <div style={{
-      width: 32, height: 32, borderRadius: 6, background: `hsl(${hue},40%,45%)`,
+      width: 36, height: 36, borderRadius: 8, background: `hsl(${hue},40%,45%)`,
       color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontSize: 11, fontWeight: 700, flexShrink: 0,
+      fontSize: 12, fontWeight: 700, flexShrink: 0,
     }}>
       {initials}
     </div>
   )
 }
 
-// ── Group card ────────────────────────────────────────────────────────────────
+// ── Project Card ──────────────────────────────────────────────────────────────
 
-function GroupCard({ group }: { group: DashboardGroup }) {
-  const environments = group.projects[0]?.environments ?? []
+function ProjectCard({ project }: { project: DashboardProject }) {
+  const deployed = [...project.environments]
+    .filter(e => e.deployedAt !== null)
+    .sort((a, b) => new Date(b.deployedAt!).getTime() - new Date(a.deployedAt!).getTime())
+  const last = deployed[0] ?? null
+  const stripColor = last?.environmentColor ?? '#3a3a3a'
 
+  return (
+    <Link
+      to={`/projects/${project.projectId}/dashboard`}
+      style={{ textDecoration: 'none', color: 'inherit' }}
+    >
+      <div
+        className="card"
+        style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'row', cursor: 'pointer', transition: 'border-color 0.15s' }}
+        onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--color-primary)')}
+        onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--color-border)')}
+      >
+        <div style={{ width: 5, background: stripColor, flexShrink: 0 }} />
+
+        <div style={{ flex: 1, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+            <ProjectAvatar name={project.projectName} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 600, fontSize: 14, lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {project.projectName}
+              </div>
+              {project.description && (
+                <div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 2, lineHeight: 1.4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {project.description}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {last ? (
+            <div style={{ fontSize: 12, color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              <span style={{ fontFamily: 'monospace', color: 'var(--color-text)', fontWeight: 500 }}>{last.releaseVersion}</span>
+              <span>·</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: last.environmentColor, display: 'inline-block', flexShrink: 0 }} />
+                {last.environmentName}
+              </span>
+              <span>·</span>
+              <span>{formatDistanceToNow(new Date(last.deployedAt!), { addSuffix: true })}</span>
+            </div>
+          ) : (
+            <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>Never deployed</div>
+          )}
+
+          {deployed.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+              {deployed.map(env => (
+                <span key={env.environmentId} style={{
+                  fontSize: 11, padding: '2px 8px', borderRadius: 20,
+                  background: `${env.environmentColor}22`,
+                  border: `1px solid ${env.environmentColor}55`,
+                  color: env.environmentColor,
+                  fontWeight: 500,
+                }}>
+                  {env.environmentName}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </Link>
+  )
+}
+
+// ── Group Section ─────────────────────────────────────────────────────────────
+
+function GroupSection({ group }: { group: DashboardGroup }) {
   return (
     <div style={{ marginBottom: 32 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
@@ -83,56 +109,15 @@ function GroupCard({ group }: { group: DashboardGroup }) {
         </span>
       </div>
 
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ minWidth: 600 }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
-                <th style={{ width: 220, paddingLeft: 20 }}></th>
-                {environments.map(env => (
-                  <th key={env.environmentId} style={{
-                    textAlign: 'left', fontSize: 11, fontWeight: 600, letterSpacing: '0.06em',
-                    color: 'var(--color-text-muted)', textTransform: 'uppercase',
-                    paddingTop: 14, paddingBottom: 14, minWidth: 180,
-                  }}>
-                    {env.environmentName}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {group.projects.length === 0 ? (
-                <tr>
-                  <td colSpan={environments.length + 1}>
-                    <div className="empty-state" style={{ padding: '16px 20px' }}>No projects.</div>
-                  </td>
-                </tr>
-              ) : group.projects.map((project, i) => (
-                <tr key={project.projectId} style={{ borderTop: i === 0 ? undefined : '1px solid var(--color-border)' }}>
-                  <td style={{ paddingLeft: 20, paddingRight: 16 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <ProjectAvatar name={project.projectName} />
-                      <Link
-                        to={`/projects/${project.projectId}/dashboard`}
-                        style={{ color: 'var(--color-text)', textDecoration: 'none', fontWeight: 500, fontSize: 14 }}
-                        onMouseOver={e => (e.currentTarget.style.color = 'var(--color-primary)')}
-                        onMouseOut={e => (e.currentTarget.style.color = 'var(--color-text)')}
-                      >
-                        {project.projectName}
-                      </Link>
-                    </div>
-                  </td>
-                  {project.environments.map(env => (
-                    <td key={env.environmentId} style={{ paddingRight: 24 }}>
-                      <StatusCell env={env} />
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {group.projects.length === 0 ? (
+        <div className="empty-state">No projects in this group.</div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 12 }}>
+          {group.projects.map(project => (
+            <ProjectCard key={project.projectId} project={project} />
+          ))}
         </div>
-      </div>
+      )}
     </div>
   )
 }
@@ -206,7 +191,7 @@ export function Dashboard() {
         <div className="empty-state">No projects yet. Create your first project.</div>
       ) : (
         groups.map(group => (
-          <GroupCard key={group.groupId ?? 'ungrouped'} group={group} />
+          <GroupSection key={group.groupId ?? 'ungrouped'} group={group} />
         ))
       )}
 

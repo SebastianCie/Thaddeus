@@ -15,6 +15,9 @@ import { Configuration } from './pages/Configuration'
 import { ProjectDashboard } from './pages/ProjectDashboard'
 import { ProjectProcess } from './pages/ProjectProcess'
 import { ProjectLifecycle } from './pages/ProjectLifecycle'
+import { ProjectVariables } from './pages/ProjectVariables'
+import { ProjectReleases } from './pages/ProjectReleases'
+import { DeployPreview } from './pages/DeployPreview'
 import { DeploymentLifecycles } from './pages/DeploymentLifecycles'
 import { DeploymentLifecycleEditor } from './pages/DeploymentLifecycleEditor'
 
@@ -66,7 +69,10 @@ export default function App() {
           <Route path="/projects/:id" element={<ProjectDetail />} />
           <Route path="/projects/:id/dashboard" element={<ProjectDashboard />} />
           <Route path="/projects/:id/process"   element={<ProjectProcess />} />
-          <Route path="/projects/:id/lifecycle" element={<ProjectLifecycle />} />
+          <Route path="/projects/:id/lifecycle"  element={<ProjectLifecycle />} />
+          <Route path="/projects/:id/releases" element={<ProjectReleases />} />
+          <Route path="/projects/:id/releases/:releaseId/deploy" element={<DeployPreview />} />
+          <Route path="/projects/:id/variables" element={<ProjectVariables />} />
           <Route path="/deployments" element={<Deployments />} />
           <Route path="/deployments/:id" element={<DeploymentDetail />} />
           <Route path="/infrastructure" element={<InfrastructureDashboard />} />

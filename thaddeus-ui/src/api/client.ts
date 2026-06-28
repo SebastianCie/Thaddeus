@@ -66,10 +66,10 @@ export const packagesApi = {
   list: (search?: string, page = 0, size = 20) =>
     api.get('/packages', { params: { search, page, size } }).then(r => r.data),
   versions: (packageId: string) => api.get(`/packages/${packageId}/versions`).then(r => r.data),
-  upload: (packageId: string, version: string, file: File) => {
+  upload: (file: File) => {
     const form = new FormData()
     form.append('file', file)
-    return api.put(`/packages/${packageId}/${version}`, form, {
+    return api.post('/packages/upload', form, {
       headers: { 'Content-Type': 'multipart/form-data' },
     }).then(r => r.data)
   },
@@ -123,6 +123,8 @@ export const deploymentsApi = {
   get: (id: string) => api.get(`/deployments/${id}`).then(r => r.data),
   trigger: (releaseId: string, environmentId: string) =>
     api.post(`/releases/${releaseId}/deployments`, { environmentId }).then(r => r.data),
+  listByRelease: (releaseId: string, environmentId?: string) =>
+    api.get(`/releases/${releaseId}/deployments`, { params: environmentId ? { environmentId } : {} }).then(r => r.data),
   cancel: (id: string) => api.post(`/deployments/${id}/cancel`),
   tasks: (id: string) => api.get(`/deployments/${id}/tasks`).then(r => r.data),
 };

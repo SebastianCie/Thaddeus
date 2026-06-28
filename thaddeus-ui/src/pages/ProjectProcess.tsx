@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { projectsApi } from '../api/client'
-import type { DeploymentStep } from '../types'
+import { projectsApi, packagesApi } from '../api/client'
+import type { DeploymentStep, Project, Package } from '../types'
 
 function StepRolesEditor({ roles, onChange }: { roles: string[]; onChange: (roles: string[]) => void }) {
   const [input, setInput] = useState('')
@@ -38,6 +38,37 @@ function StepRolesEditor({ roles, onChange }: { roles: string[]; onChange: (role
 export function ProjectProcess() {
   const { id } = useParams<{ id: string }>()
   const qc = useQueryClient()
+
+  const { data: project } = useQuery<Project>({
+    queryKey: ['project', id],
+    queryFn: () => projectsApi.get(id!),
+    enabled: !!id,
+  })
+
+  const { data: allPackages = [] } = useQuery<Package[]>({
+    queryKey: ['packages-all'],
+    queryFn: () => packagesApi.list(undefined, 0, 1000),
+    staleTime: 60_000,
+  })
+
+  const [pkgSearch, setPkgSearch] = useState('')
+  const [pkgOpen, setPkgOpen] = useState(false)
+  const pkgRef = useRef<HTMLDivElement>(null)
+
+  const uniquePkgIds = useMemo(() => {
+    const ids = [...new Set((allPackages as Package[]).map(p => p.packageId))]
+    if (!pkgSearch.trim()) return ids
+    const q = pkgSearch.toLowerCase()
+    return ids.filter(pkgId => pkgId.toLowerCase().includes(q))
+  }, [allPackages, pkgSearch])
+
+  const savePkgIdMutation = useMutation({
+    mutationFn: (pkgId: string) => projectsApi.update(id!, { ...project, packageId: pkgId }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['project', id] })
+      setPkgSearch('')
+    },
+  })
 
   const { data: steps = [], isLoading } = useQuery<DeploymentStep[]>({
     queryKey: ['steps', id],
@@ -85,6 +116,80 @@ export function ProjectProcess() {
         <h1 className="page-title">Process Editor</h1>
       </div>
 
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 10 }}>Package ID</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <div ref={pkgRef} style={{ position: 'relative', width: 340 }}>
+            <input
+              className="form-input"
+              placeholder="Search package ID…"
+              value={pkgSearch}
+              onChange={e => setPkgSearch(e.target.value)}
+              onFocus={() => setPkgOpen(true)}
+              onBlur={() => setTimeout(() => setPkgOpen(false), 150)}
+              style={{ width: '100%' }}
+            />
+            {pkgOpen && (
+              <div style={{
+                position: 'absolute',
+                top: '100%',
+                left: 0,
+                right: 0,
+                marginTop: 2,
+                background: 'var(--color-surface, #1e1e1e)',
+                border: '1px solid var(--color-border)',
+                borderRadius: 4,
+                boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                zIndex: 100,
+                maxHeight: '30vh',
+                overflowY: 'auto',
+              }}>
+                {uniquePkgIds.length === 0 ? (
+                  <div style={{ padding: '8px 12px', fontSize: 12, color: 'var(--color-text-muted)' }}>
+                    No packages found.
+                  </div>
+                ) : uniquePkgIds.map(pkgId => (
+                  <div
+                    key={pkgId}
+                    onMouseDown={() => { savePkgIdMutation.mutate(pkgId); setPkgSearch(''); setPkgOpen(false) }}
+                    style={{
+                      padding: '8px 12px',
+                      fontSize: 13,
+                      fontFamily: 'monospace',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      background: pkgId === project?.packageId ? 'var(--color-primary)' : 'transparent',
+                      color: pkgId === project?.packageId ? '#fff' : 'inherit',
+                    }}
+                    onMouseEnter={e => {
+                      if (pkgId !== project?.packageId)
+                        (e.currentTarget as HTMLDivElement).style.background = 'var(--color-surface-2, #2d2d2d)'
+                    }}
+                    onMouseLeave={e => {
+                      if (pkgId !== project?.packageId)
+                        (e.currentTarget as HTMLDivElement).style.background = 'transparent'
+                    }}
+                  >
+                    {pkgId === project?.packageId && <span style={{ fontSize: 10 }}>✓</span>}
+                    {pkgId}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          {project?.packageId && (
+            <div style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>
+              Selected: <span style={{ fontFamily: 'monospace', color: 'var(--color-primary)' }}>{project.packageId}</span>
+            </div>
+          )}
+          {savePkgIdMutation.isPending && (
+            <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>Saving…</span>
+          )}
+        </div>
+      </div>
+
       {localSteps.length === 0 && (
         <div className="empty-state" style={{ marginBottom: 16 }}>No steps defined. Add a step below.</div>
       )}
@@ -116,7 +221,7 @@ export function ProjectProcess() {
       ))}
 
       <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-        {['DEPLOY_IIS_WEBSITE', 'DEPLOY_IIS_WEBAPP', 'RUN_POWERSHELL_SCRIPT'].map(type => (
+        {['DEPLOY_IIS_WEBSITE', 'DEPLOY_IIS_WEBAPP', 'RUN_POWERSHELL_SCRIPT', 'RUN_PACKAGE_SCRIPT'].map(type => (
           <button key={type} className="btn btn-green"
             onClick={() => setLocalSteps(s => [...s, { id: '', projectId: id!, position: s.length, type, configJson: '{}', targetRoles: [] }])}>
             + {type}

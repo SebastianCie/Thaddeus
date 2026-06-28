@@ -18,7 +18,7 @@ public class Release extends PanacheEntityBase {
     @Column(name = "project_id", nullable = false)
     public UUID projectId;
 
-    @Column(nullable = false, length = 50)
+    @Column(nullable = false, length = 200)
     public String version;
 
     @Column(name = "package_id", nullable = false)
@@ -26,6 +26,12 @@ public class Release extends PanacheEntityBase {
 
     @Column(name = "package_version", nullable = false, length = 100)
     public String packageVersion;
+
+    @Column(name = "lifecycle_name", length = 200)
+    public String lifecycleName;
+
+    @Column(name = "release_notes", columnDefinition = "TEXT")
+    public String releaseNotes;
 
     @Column(name = "process_snapshot_json", nullable = false, columnDefinition = "TEXT")
     public String processSnapshotJson = "[]";
@@ -38,8 +44,4 @@ public class Release extends PanacheEntityBase {
                 io.quarkus.panache.common.Sort.by("createdAt").descending(), projectId).list();
     }
 
-    public static String nextVersion(UUID projectId) {
-        long count = count("projectId = ?1", projectId);
-        return "1.0." + count;
-    }
 }

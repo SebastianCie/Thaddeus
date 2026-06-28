@@ -38,8 +38,10 @@ public class IISWebAppStepHandler implements StepHandler {
         String physicalPath = required(cfg, "physicalPath");
         String appPoolName = (String) cfg.getOrDefault("appPoolName", virtualPath.replace("/", "") + "Pool");
 
-        taskLogger.info(ctx.taskId(), "Downloading package " + ctx.packageId() + " " + ctx.packageVersion());
-        Path nupkg = downloader.download(ctx.packageId(), ctx.packageVersion(), ctx.workDir());
+        String packageId = required(cfg, "packageId");
+        String packageVersion = cfg.containsKey("packageVersion") ? (String) cfg.get("packageVersion") : ctx.packageVersion();
+        taskLogger.info(ctx.taskId(), "Downloading package " + packageId + " " + packageVersion);
+        Path nupkg = downloader.download(packageId, packageVersion, ctx.workDir());
 
         Path targetDir = Path.of(physicalPath);
         Files.createDirectories(targetDir);

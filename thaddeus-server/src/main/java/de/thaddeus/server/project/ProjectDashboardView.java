@@ -20,7 +20,8 @@ public class ProjectDashboardView {
         public String environmentId;
         public String environmentName;
         public String environmentColor;
-        public String status;      // null = never deployed
-        public String deployedAt;  // ISO-8601, null = never deployed
+        public String status;        // null = never deployed
+        public String deployedAt;    // ISO-8601, null = never deployed
+        public String deploymentId;  // null = never deployed
     }
 }

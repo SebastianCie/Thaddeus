@@ -12,6 +12,7 @@ public class DashboardView {
     public static class ProjectEntry {
         public String projectId;
         public String projectName;
+        public String description;
         public List<EnvironmentEntry> environments = new ArrayList<>();
     }
 

@@ -39,8 +39,10 @@ public class IISWebsiteStepHandler implements StepHandler {
         String physicalPath = required(cfg, "physicalPath");
         String appPoolDotNetVersion = (String) cfg.getOrDefault("appPoolDotNetVersion", "v4.0");
 
-        taskLogger.info(ctx.taskId(), "Downloading package " + ctx.packageId() + " " + ctx.packageVersion());
-        Path nupkg = downloader.download(ctx.packageId(), ctx.packageVersion(), ctx.workDir());
+        String packageId = required(cfg, "packageId");
+        String packageVersion = cfg.containsKey("packageVersion") ? (String) cfg.get("packageVersion") : ctx.packageVersion();
+        taskLogger.info(ctx.taskId(), "Downloading package " + packageId + " " + packageVersion);
+        Path nupkg = downloader.download(packageId, packageVersion, ctx.workDir());
 
         taskLogger.info(ctx.taskId(), "Extracting package to " + physicalPath);
         Path extractDir = extractNupkg(nupkg, Path.of(physicalPath), ctx);

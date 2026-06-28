@@ -13,18 +13,19 @@ function formatBytes(bytes: number) {
 function UploadModal({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient()
   const fileRef = useRef<HTMLInputElement>(null)
-  const [form, setForm] = useState({ packageId: '', version: '' })
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
 
   const uploadMutation = useMutation({
-    mutationFn: () => packagesApi.upload(form.packageId, form.version, selectedFile!),
+    mutationFn: () => packagesApi.upload(selectedFile!),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['packages'] })
       onClose()
     },
   })
 
-  const canSubmit = form.packageId.trim() && form.version.trim() && selectedFile && !uploadMutation.isPending
+  const errorMsg = uploadMutation.isError
+    ? ((uploadMutation.error as any)?.response?.data?.error ?? 'Upload failed.')
+    : null
 
   return (
     <div className="modal-overlay">
@@ -32,23 +33,8 @@ function UploadModal({ onClose }: { onClose: () => void }) {
         <div className="modal-title">Upload Package</div>
 
         <div className="form-group">
-          <label className="form-label">Package ID *</label>
-          <input className="form-input" placeholder="e.g. MyWebApp" value={form.packageId}
-            onChange={e => setForm(f => ({ ...f, packageId: e.target.value }))} />
-          <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
-            Logical name of the application (no spaces)
-          </span>
-        </div>
-
-        <div className="form-group">
-          <label className="form-label">Version *</label>
-          <input className="form-input" placeholder="e.g. 1.2.3" value={form.version}
-            onChange={e => setForm(f => ({ ...f, version: e.target.value }))} />
-        </div>
-
-        <div className="form-group">
           <label className="form-label">NuGet Package (.nupkg) *</label>
-          <input ref={fileRef} type="file" accept=".nupkg,.zip"
+          <input ref={fileRef} type="file" accept=".nupkg"
             onChange={e => setSelectedFile(e.target.files?.[0] ?? null)}
             style={{ display: 'none' }} />
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -59,17 +45,18 @@ function UploadModal({ onClose }: { onClose: () => void }) {
               {selectedFile ? `${selectedFile.name} (${formatBytes(selectedFile.size)})` : 'No file selected'}
             </span>
           </div>
+          <span style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 4, display: 'block' }}>
+            Package ID and version are read automatically from the .nuspec inside the package.
+          </span>
         </div>
 
-        {uploadMutation.isError && (
-          <p style={{ color: 'var(--color-danger)', fontSize: 13, marginBottom: 8 }}>
-            Upload failed. Package ID + version may already exist.
-          </p>
+        {errorMsg && (
+          <p style={{ color: 'var(--color-danger)', fontSize: 13, marginBottom: 8 }}>{errorMsg}</p>
         )}
 
         <div className="modal-actions">
           <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" onClick={() => uploadMutation.mutate()} disabled={!canSubmit}>
+          <button className="btn btn-primary" onClick={() => uploadMutation.mutate()} disabled={!selectedFile || uploadMutation.isPending}>
             {uploadMutation.isPending ? 'Uploading…' : 'Upload'}
           </button>
         </div>

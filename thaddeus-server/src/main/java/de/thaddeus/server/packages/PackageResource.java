@@ -11,14 +11,18 @@ import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
+import org.w3c.dom.Document;
 
+import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.util.HexFormat;
 import java.util.List;
-import java.util.UUID;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 
 @Path("/api/packages")
 @Produces(MediaType.APPLICATION_JSON)
@@ -30,28 +34,37 @@ public class PackageResource {
     @Inject AuditService auditService;
     @Inject SecurityIdentity identity;
 
-    // ── Upload NuGet package (Issue #6) ───────────────────────────────────────
+    // ── Upload NuGet package ──────────────────────────────────────────────────
+    // packageId and version are read from the .nuspec inside the .nupkg
 
-    @PUT
-    @Path("/{packageId}/{version}")
+    @POST
+    @Path("/upload")
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     @Transactional
     @RolesAllowed({"thaddeus-admin", "thaddeus-deployer"})
-    public Response upload(
-            @PathParam("packageId") String packageId,
-            @PathParam("version") String version,
-            @RestForm("file") FileUpload file) throws IOException {
-
-        if (Package.exists(packageId, version)) {
-            return Response.status(409)
-                    .entity("{\"error\":\"Package " + packageId + " " + version + " already exists\"}")
-                    .build();
-        }
-
+    public Response upload(@RestForm("file") FileUpload file) throws IOException {
         long maxBytes = (long) maxSizeMb * 1024 * 1024;
         if (file.size() > maxBytes) {
             return Response.status(413)
                     .entity("{\"error\":\"File exceeds maximum size of " + maxSizeMb + " MB\"}")
+                    .build();
+        }
+
+        NuspecMetadata meta;
+        try {
+            meta = readNuspec(file.uploadedFile());
+        } catch (Exception e) {
+            return Response.status(400)
+                    .entity("{\"error\":\"Could not read .nuspec from package: " + e.getMessage() + "\"}")
+                    .build();
+        }
+
+        String packageId = meta.id;
+        String version = meta.version;
+
+        if (Package.exists(packageId, version)) {
+            return Response.status(409)
+                    .entity("{\"error\":\"Package " + packageId + " " + version + " already exists\"}")
                     .build();
         }
 
@@ -66,7 +79,7 @@ public class PackageResource {
         pkg.version = version;
         pkg.filename = file.fileName();
         pkg.path = dest.toString();
-        pkg.sizeBytes = Files.size((java.nio.file.Path) dest);
+        pkg.sizeBytes = Files.size(dest);
         pkg.sha256 = sha256;
         pkg.persist();
 
@@ -74,6 +87,26 @@ public class PackageResource {
                 "{\"packageId\":\"" + packageId + "\",\"version\":\"" + version + "\"}");
 
         return Response.created(null).entity(pkg).build();
+    }
+
+    private record NuspecMetadata(String id, String version) {}
+
+    private NuspecMetadata readNuspec(java.nio.file.Path nupkgPath) throws Exception {
+        try (ZipFile zip = new ZipFile(nupkgPath.toFile())) {
+            ZipEntry nuspecEntry = zip.stream()
+                    .filter(e -> e.getName().endsWith(".nuspec"))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException("No .nuspec found in package"));
+
+            try (InputStream is = zip.getInputStream(nuspecEntry)) {
+                Document doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(is);
+                doc.getDocumentElement().normalize();
+                String id = doc.getElementsByTagName("id").item(0).getTextContent().trim();
+                String version = doc.getElementsByTagName("version").item(0).getTextContent().trim();
+                if (id.isEmpty() || version.isEmpty()) throw new IllegalArgumentException("id or version missing in .nuspec");
+                return new NuspecMetadata(id, version);
+            }
+        }
     }
 
     // ── List & search (Issue #7) ──────────────────────────────────────────────

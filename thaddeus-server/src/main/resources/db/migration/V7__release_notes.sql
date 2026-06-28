@@ -1,0 +1,2 @@
+ALTER TABLE release ADD COLUMN release_notes TEXT;
+ALTER TABLE release ALTER COLUMN version TYPE VARCHAR(200);

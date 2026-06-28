@@ -16,21 +16,12 @@ export function ProjectDetail() {
   const { data: releases = [] } = useQuery<Release[]>({ queryKey: ['releases', id], queryFn: () => releasesApi.list(id!), enabled: !!id })
   const { data: environments = [] } = useQuery<Environment[]>({ queryKey: ['environments'], queryFn: environmentsApi.list })
 
-  const [showRelease, setShowRelease] = useState(false)
-  const [releaseForm, setReleaseForm] = useState({ packageVersion: '' })
-
-  const createReleaseMutation = useMutation({
-    mutationFn: () => releasesApi.create(id!, releaseForm),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['releases', id] }); setShowRelease(false) },
-  })
-
   if (!project) return <div className="loading">Loading…</div>
 
   return (
     <div className="page">
       <div className="page-header">
         <h1 className="page-title">{project.name}</h1>
-        <button className="btn btn-green" onClick={() => setShowRelease(true)}>+ Create Release</button>
       </div>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 24, borderBottom: '1px solid var(--color-border)', paddingBottom: 8 }}>
@@ -47,25 +38,6 @@ export function ProjectDetail() {
       {tab === 'variables' && <VariablesTab projectId={id!} variables={variables} environments={environments} qc={qc} />}
       {tab === 'releases' && <ReleasesTab releases={releases} environments={environments} projectId={id!} />}
 
-      {showRelease && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <div className="modal-title">Create Release for {project.name}</div>
-            <div className="form-group">
-              <label className="form-label">Package Version *</label>
-              <input className="form-input" placeholder="e.g. 1.2.3" value={releaseForm.packageVersion}
-                onChange={e => setReleaseForm(f => ({ ...f, packageVersion: e.target.value }))} />
-            </div>
-            <div className="modal-actions">
-              <button className="btn btn-secondary" onClick={() => setShowRelease(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={() => createReleaseMutation.mutate()}
-                disabled={!releaseForm.packageVersion || createReleaseMutation.isPending}>
-                Create
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

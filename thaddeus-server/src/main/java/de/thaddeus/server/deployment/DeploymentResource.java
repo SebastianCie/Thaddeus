@@ -47,6 +47,18 @@ public class DeploymentResource {
     }
 
     @GET
+    @Path("/releases/{releaseId}/deployments")
+    @RolesAllowed({"thaddeus-admin", "thaddeus-deployer", "thaddeus-viewer"})
+    public List<Deployment> listByRelease(@PathParam("releaseId") UUID releaseId,
+                                          @QueryParam("environmentId") UUID environmentId) {
+        if (environmentId != null) {
+            return Deployment.find("releaseId = ?1 AND environmentId = ?2 ORDER BY createdAt DESC",
+                    releaseId, environmentId).list();
+        }
+        return Deployment.find("releaseId = ?1 ORDER BY createdAt DESC", releaseId).list();
+    }
+
+    @GET
     @Path("/deployments/{id}")
     @RolesAllowed({"thaddeus-admin", "thaddeus-deployer", "thaddeus-viewer"})
     public Deployment get(@PathParam("id") UUID id) {
@@ -80,9 +92,9 @@ public class DeploymentResource {
     @Path("/tasks/{taskId}/logs")
     @RolesAllowed({"thaddeus-admin", "thaddeus-deployer"})
     @Transactional
-    public Response appendLogs(@PathParam("taskId") UUID taskId, List<LogEntry> entries) {
+    public Response appendLogs(@PathParam("taskId") UUID taskId, LogBatch batch) {
         if (DeploymentTask.findById(taskId) == null) throw new NotFoundException();
-        for (LogEntry entry : entries) {
+        for (LogEntry entry : batch.entries()) {
             TaskLog log = new TaskLog();
             log.taskId = taskId;
             log.loggedAt = entry.timestamp() != null ? entry.timestamp() : Instant.now();
@@ -151,6 +163,7 @@ public class DeploymentResource {
     }
 
     public record TriggerRequest(UUID environmentId) {}
+    public record LogBatch(List<LogEntry> entries) {}
     public record LogEntry(Instant timestamp, String level, String message) {}
     public record TaskStatusUpdate(DeploymentStatus status) {}
 }
