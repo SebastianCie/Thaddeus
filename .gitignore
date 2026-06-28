@@ -26,6 +26,9 @@ thaddeus-ui/dist/
 .DS_Store
 Thumbs.db
 
+# Lokale Dokumentation
+doku fdeploy/
+
 # Quarkus
 .quarkus/
 
